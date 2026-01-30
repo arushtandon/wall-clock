@@ -24,25 +24,28 @@
             color: #ffffff;
             font-family: 'Roboto Mono', monospace;
             min-height: 100vh;
+            max-height: 100vh;
+            width: 100vw;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             padding: 20px;
-            overflow-x: hidden;
+            overflow: hidden;
         }
 
         .container {
             width: 100%;
             max-width: 1200px;
+            height: 100%;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 25px;
-            min-height: 100vh;
-            padding: 30px;
+            gap: 20px;
+            padding: 20px;
             margin: 0 auto;
+            overflow: hidden;
         }
 
         /* Logo Section - Fixed to top left corner */
@@ -259,104 +262,34 @@
 
         /* Mobile optimizations */
         @media (max-width: 768px) {
-            .prices-section {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 10px;
-            }
-            
-            .price-card {
-                padding: 12px;
-            }
-            
-            .asset-price {
-                font-size: clamp(1.2rem, 5vw, 2rem);
-            }
-            
-            .asset-name {
-                font-size: clamp(0.6rem, 2.5vw, 0.9rem);
-            }
-            
-            .asset-change {
-                font-size: clamp(0.7rem, 2.5vw, 1rem);
-            }
-            
-            .time {
-                font-size: clamp(2rem, 10vw, 3rem);
-            }
-            
-            .date {
-                font-size: clamp(0.7rem, 3vw, 1rem);
-            }
-            
-            .container {
-                gap: 15px;
-            }
-        }
-
-        @media (max-width: 480px) {
             body {
-                padding: 8px;
-            }
-
-            .prices-section {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 8px;
-            }
-
-            .price-card {
-                padding: 10px;
-                gap: 5px;
+                padding: 5px;
             }
             
-            .asset-price {
-                font-size: clamp(1rem, 4.5vw, 1.5rem);
-            }
-            
-            .asset-name {
-                font-size: clamp(0.55rem, 2vw, 0.75rem);
-                letter-spacing: 0.5px;
-            }
-            
-            .asset-change {
-                font-size: clamp(0.6rem, 2vw, 0.85rem);
-                gap: 4px;
-            }
-            
-            .time {
-                font-size: clamp(1.8rem, 8vw, 2.5rem);
-            }
-            
-            .date {
-                font-size: clamp(0.6rem, 2.5vw, 0.9rem);
-            }
-
             .container {
-                gap: 10px;
+                gap: 8px;
+                padding: 5px;
+                justify-content: flex-start;
+                padding-top: 10px;
             }
             
             .clock-section {
-                padding: 10px 0;
+                padding: 5px 0;
             }
             
-            .logo-section {
-                max-width: 120px;
-                top: 5px;
-                left: 5px;
+            .time {
+                font-size: 1.5rem;
             }
             
-            .fullscreen-btn {
-                padding: 5px 8px;
-                font-size: 0.7rem;
-                top: 8px;
-                right: 8px;
+            .date {
+                font-size: 0.65rem;
+                margin-top: 2px;
             }
-        }
-        
-        /* Very small screens */
-        @media (max-width: 360px) {
+            
             .prices-section {
                 grid-template-columns: repeat(2, 1fr);
                 gap: 6px;
+                max-width: 100%;
             }
             
             .price-card {
@@ -365,47 +298,177 @@
                 border-radius: 8px;
             }
             
+            .asset-name {
+                font-size: 0.55rem;
+                letter-spacing: 0;
+            }
+            
             .asset-price {
-                font-size: clamp(0.9rem, 4vw, 1.3rem);
+                font-size: 1.1rem;
+            }
+            
+            .asset-change {
+                font-size: 0.6rem;
+                gap: 3px;
+            }
+            
+            .logo-section {
+                position: relative;
+                top: auto;
+                left: auto;
+                margin-bottom: 5px;
+            }
+            
+            .logo-section img {
+                max-width: 100px;
+            }
+            
+            .fullscreen-btn {
+                display: none;
+            }
+            
+            .click-hint {
+                display: none;
+            }
+            
+            .status {
+                font-size: 0.5rem;
+                margin-top: 5px;
+            }
+        }
+
+        /* Portrait mobile phones */
+        @media (max-width: 480px) and (max-height: 900px) {
+            body {
+                padding: 3px;
+            }
+            
+            .container {
+                gap: 5px;
+                padding: 3px;
+            }
+            
+            .time {
+                font-size: 1.3rem;
+            }
+            
+            .date {
+                font-size: 0.55rem;
+            }
+
+            .prices-section {
+                gap: 5px;
+            }
+
+            .price-card {
+                padding: 6px;
+                gap: 2px;
             }
             
             .asset-name {
                 font-size: 0.5rem;
             }
             
+            .asset-price {
+                font-size: 0.95rem;
+            }
+            
             .asset-change {
-                font-size: 0.55rem;
+                font-size: 0.5rem;
+                gap: 2px;
+            }
+            
+            .logo-section img {
+                max-width: 80px;
+            }
+        }
+        
+        /* Very small screens */
+        @media (max-width: 380px) {
+            .prices-section {
+                gap: 4px;
+            }
+            
+            .price-card {
+                padding: 5px;
+                gap: 1px;
+                border-radius: 6px;
+            }
+            
+            .asset-price {
+                font-size: 0.85rem;
+            }
+            
+            .asset-name {
+                font-size: 0.45rem;
+            }
+            
+            .asset-change {
+                font-size: 0.45rem;
+            }
+            
+            .time {
+                font-size: 1.1rem;
             }
         }
 
         /* Landscape mobile */
         @media (max-height: 500px) and (orientation: landscape) {
+            body {
+                padding: 5px;
+            }
+            
             .container {
                 flex-direction: row;
                 flex-wrap: wrap;
                 justify-content: center;
-                gap: 15px;
+                align-items: flex-start;
+                gap: 5px;
+                padding: 5px;
             }
 
             .clock-section {
                 width: 100%;
+                padding: 2px 0;
+            }
+            
+            .time {
+                font-size: 1rem;
+            }
+            
+            .date {
+                font-size: 0.5rem;
             }
 
             .prices-section {
-                flex: 1;
-                min-width: 300px;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 5px;
+                width: 100%;
             }
 
-            .time {
-                font-size: 2rem;
+            .price-card {
+                padding: 5px;
+                gap: 2px;
             }
-
+            
+            .asset-name {
+                font-size: 0.45rem;
+            }
+            
             .asset-price {
-                font-size: clamp(1.5rem, 6vw, 2.5rem);
+                font-size: 0.8rem;
+            }
+            
+            .asset-change {
+                font-size: 0.4rem;
             }
 
-            .price-card.highlighted .asset-price {
-                font-size: clamp(2.5rem, 10vw, 5rem);
+            .logo-section {
+                display: none;
+            }
+            
+            .fullscreen-btn, .click-hint, .status {
+                display: none;
             }
         }
 
