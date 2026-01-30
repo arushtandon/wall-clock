@@ -20,12 +20,10 @@
         }
 
         html, body {
-            height: 100%;
-            height: 100dvh;
+            min-height: 100%;
             width: 100%;
             margin: 0;
             padding: 0;
-            overflow: hidden;
         }
 
         body {
@@ -36,63 +34,54 @@
             flex-direction: column;
             align-items: center;
             justify-content: flex-start;
-            padding: 2vw;
+            padding: 10px;
+            padding-top: 60px;
         }
 
         /* MOBILE FIRST - Default styles for mobile */
         .container {
             width: 100%;
-            height: 100%;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: flex-start;
-            gap: 1vh;
+            gap: 10px;
             padding: 0;
             margin: 0 auto;
         }
 
-        /* Logo Section */
+        /* Logo Section - Fixed top left */
         .logo-section {
-            width: 100%;
-            text-align: center;
-            padding: 0;
-            flex-shrink: 0;
-            height: 5vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 100;
         }
 
         .logo-section img {
-            max-height: 4vh;
-            width: auto;
+            width: 100px;
+            height: auto;
         }
 
         /* Clock Styles */
         .clock-section {
             text-align: center;
             width: 100%;
-            flex-shrink: 0;
-            height: 6vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
+            padding: 10px 0;
         }
 
         .time {
             font-family: 'Orbitron', sans-serif;
-            font-size: 4vh;
+            font-size: 1.8rem;
             font-weight: 500;
             letter-spacing: 2px;
             color: #666666;
-            line-height: 1;
         }
 
         .date {
-            font-size: 1.5vh;
+            font-size: 0.7rem;
             color: #444444;
-            margin-top: 0;
+            margin-top: 5px;
             letter-spacing: 1px;
         }
 
@@ -101,11 +90,7 @@
             width: 100%;
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            grid-template-rows: repeat(4, 1fr);
-            gap: 1vw;
-            flex: 1;
-            align-content: stretch;
-            max-height: 85vh;
+            gap: 8px;
         }
 
         .prices-section.has-highlight {
@@ -115,17 +100,15 @@
         .price-card {
             background: linear-gradient(145deg, #0a0a0a, #111111);
             border: 1px solid #222222;
-            border-radius: 6px;
-            padding: 1vh 2vw;
+            border-radius: 8px;
+            padding: 12px;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: flex-start;
-            gap: 0;
+            gap: 4px;
             cursor: pointer;
             user-select: none;
-            min-height: 0;
-            overflow: hidden;
         }
 
         .price-card:hover {
@@ -139,6 +122,7 @@
         .price-card.highlighted {
             border-color: #666666;
             background: linear-gradient(145deg, #111111, #1a1a1a);
+            padding: 20px;
         }
 
         /* Alert highlights for +5% or -5% changes */
@@ -155,40 +139,37 @@
         }
 
         .asset-name {
-            font-size: 2.5vw;
+            font-size: 0.6rem;
             color: #888888;
             text-transform: uppercase;
             letter-spacing: 0;
-            line-height: 1.2;
         }
 
         .price-card.highlighted .asset-name {
-            font-size: 3vw;
+            font-size: 0.9rem;
             color: #aaaaaa;
         }
 
         .asset-price {
             font-family: 'Orbitron', sans-serif;
-            font-size: 5vw;
+            font-size: 1.1rem;
             font-weight: 700;
             color: #ffffff;
-            line-height: 1.2;
         }
 
         .price-card.highlighted .asset-price {
-            font-size: 8vw;
+            font-size: 2rem;
         }
 
         .asset-change {
-            font-size: 2.2vw;
+            font-size: 0.6rem;
             display: flex;
             align-items: center;
             gap: 4px;
-            line-height: 1.2;
         }
 
         .price-card.highlighted .asset-change {
-            font-size: 3vw;
+            font-size: 0.9rem;
         }
 
         .positive {
@@ -282,26 +263,16 @@
 
         /* Landscape mobile */
         @media (orientation: landscape) and (max-height: 500px) {
-            .clock-section {
-                display: none;
-            }
-
             .prices-section {
                 grid-template-columns: repeat(4, 1fr);
-                grid-template-rows: repeat(2, 1fr);
-                max-height: 95vh;
             }
             
-            .asset-name {
-                font-size: 1.8vh;
+            .clock-section {
+                padding: 5px 0;
             }
             
-            .asset-price {
-                font-size: 4vh;
-            }
-            
-            .asset-change {
-                font-size: 1.5vh;
+            .time {
+                font-size: 1.2rem;
             }
         }
 
@@ -309,6 +280,7 @@
         @media (min-width: 900px) {
             body {
                 padding: 20px;
+                padding-top: 20px;
                 justify-content: center;
             }
             
@@ -319,21 +291,11 @@
                 justify-content: center;
             }
             
-            .logo-section {
-                position: fixed;
-                top: 15px;
-                left: 15px;
-                width: auto;
-                height: auto;
-            }
-            
             .logo-section img {
-                max-width: 220px;
-                max-height: none;
+                width: 180px;
             }
             
             .clock-section {
-                height: auto;
                 padding: 20px 0;
             }
             
@@ -348,11 +310,8 @@
             
             .prices-section {
                 grid-template-columns: repeat(3, 1fr);
-                grid-template-rows: auto;
                 gap: 20px;
                 max-width: 1100px;
-                max-height: none;
-                flex: none;
             }
             
             .price-card {
