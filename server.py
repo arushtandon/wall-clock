@@ -71,70 +71,8 @@ ASSETS = {
 }
 
 def fetch_from_investing_api():
-    """Fetch live prices from investing.com using their real-time API"""
-    try:
-        from curl_cffi import requests
-    except ImportError:
-        print("curl_cffi not installed! Run: pip install curl_cffi", flush=True)
-        return None
-    
-    results = []
-    
-    # Build comma-separated list of pair IDs
-    pair_ids = ','.join([asset['pair_id'] for asset in ASSETS.values()])
-    
-    # Use the live quotes API endpoint (same as used by investing.com's live price updates)
-    url = f"https://api.investing.com/api/financialdata/assets/quotesInfo?pairIds={pair_ids}"
-    
-    try:
-        response = requests.get(
-            url,
-            impersonate="chrome",
-            timeout=10,
-            headers={
-                'Accept': 'application/json',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Origin': 'https://www.investing.com',
-                'Referer': 'https://www.investing.com/',
-                'Domain-Id': 'www',
-            }
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            
-            # Process the response
-            if 'data' in data:
-                for item in data['data']:
-                    pair_id = str(item.get('pairId', ''))
-                    
-                    # Find matching asset
-                    for key, asset in ASSETS.items():
-                        if asset['pair_id'] == pair_id:
-                            price = item.get('last', 0)
-                            change = item.get('change', 0)
-                            change_pct = item.get('changePercent', 0)
-                            
-                            if price and price > 0:
-                                results.append({
-                                    'symbol': asset['symbol'],
-                                    'regularMarketPrice': price,
-                                    'regularMarketChange': change,
-                                    'regularMarketChangePercent': change_pct,
-                                })
-                                print(f"  {asset['name']}: ${price:,.4f} ({change_pct:+.2f}%)", flush=True)
-                            break
-            else:
-                print(f"API: No data in response", flush=True)
-        else:
-            print(f"API: HTTP {response.status_code}", flush=True)
-                
-    except Exception as e:
-        print(f"API Error: {e}", flush=True)
-    
-    if results:
-        return {'quoteResponse': {'result': results}}
-    
+    """Fetch live prices from investing.com - API is blocked, so use scraping"""
+    # API is blocked by Cloudflare, skip and use scraping
     return None
 
 def fetch_from_investing_scrape():
@@ -151,11 +89,16 @@ def fetch_from_investing_scrape():
         try:
             response = requests.get(
                 url,
-                impersonate="chrome",
-                timeout=15
+                impersonate="chrome110",
+                timeout=15,
+                headers={
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.5',
+                }
             )
             
             if response.status_code != 200:
+                print(f"  {asset['name']}: HTTP {response.status_code}", flush=True)
                 continue
             
             html = response.text
@@ -163,35 +106,31 @@ def fetch_from_investing_scrape():
             change = 0
             change_pct = 0
             
-            # Extract data block with last, change, and changePcr
-            # Pattern: "last":106.6345,"changePcr":-7.81,"change":-9.031
-            data_match = re.search(r'"last":\s*([\d.]+)[^}]*?"changePcr":\s*(-?[\d.]+)[^}]*?"change":\s*(-?[\d.]+)', html)
-            if data_match:
-                price = float(data_match.group(1))
-                change_pct = float(data_match.group(2))
-                change = float(data_match.group(3))
-            else:
-                # Fallback: try alternate order
-                data_match = re.search(r'"last":\s*([\d.]+)[^}]*?"change":\s*(-?[\d.]+)[^}]*?"changePcr":\s*(-?[\d.]+)', html)
-                if data_match:
-                    price = float(data_match.group(1))
-                    change = float(data_match.group(2))
-                    change_pct = float(data_match.group(3))
-                else:
-                    # Last fallback: just get price
-                    match = re.search(r'"last":\s*([\d.]+)', html)
-                    if match:
-                        price = float(match.group(1))
-                    
-                    # Try to get change separately
-                    match = re.search(r'"change":\s*(-?[\d.]+)', html)
-                    if match:
-                        change = float(match.group(1))
-                    
-                    # Try changePcr
-                    match = re.search(r'"changePcr":\s*(-?[\d.]+)', html)
-                    if match:
-                        change_pct = float(match.group(1))
+            # Primary: Use data-test attribute (most reliable for current price)
+            price_match = re.search(r'data-test="instrument-price-last"[^>]*>([^<]+)', html)
+            if price_match:
+                price_str = price_match.group(1).replace(',', '')
+                try:
+                    price = float(price_str)
+                except:
+                    pass
+            
+            # Fallback: Use JSON "last" value
+            if not price:
+                match = re.search(r'"last":\s*([\d.]+)', html)
+                if match:
+                    price = float(match.group(1))
+            
+            # Get change and change percent from JSON
+            change_match = re.search(r'"change":\s*(-?[\d.]+)', html)
+            if change_match:
+                change = float(change_match.group(1))
+            
+            pct_match = re.search(r'"changePercent":\s*(-?[\d.]+)', html)
+            if not pct_match:
+                pct_match = re.search(r'"changePcr":\s*(-?[\d.]+)', html)
+            if pct_match:
+                change_pct = float(pct_match.group(1))
             
             if price and price > 0:
                 results.append({
@@ -200,7 +139,9 @@ def fetch_from_investing_scrape():
                     'regularMarketChange': change,
                     'regularMarketChangePercent': change_pct,
                 })
-                print(f"  {asset['name']}: ${price:,.2f} (chg: {change:+.4f}, {change_pct:+.4f}%)", flush=True)
+                print(f"  {asset['name']}: ${price:,.4f} ({change_pct:+.2f}%)", flush=True)
+            else:
+                print(f"  {asset['name']}: No price found", flush=True)
                     
         except Exception as e:
             print(f"  {asset['name']}: Scrape error - {e}", flush=True)
