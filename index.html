@@ -32,26 +32,30 @@
 
         .container {
             width: 100%;
-            max-width: 1000px;
+            max-width: 1200px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 20px;
+            gap: 25px;
             min-height: 100vh;
-            padding: 20px;
+            padding: 30px;
+            margin: 0 auto;
         }
 
-        /* Logo Section */
+        /* Logo Section - Fixed to top left corner */
         .logo-section {
-            text-align: center;
-            margin-bottom: 10px;
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            z-index: 100;
         }
 
         .logo-section img {
-            max-width: 200px;
+            max-width: 150px;
             height: auto;
-            filter: brightness(1.1);
+            mix-blend-mode: screen;
+            filter: brightness(1.2) contrast(1.1);
         }
 
         /* Clock Styles - Smaller */
@@ -78,14 +82,19 @@
         /* Prices Section */
         .prices-section {
             width: 100%;
+            max-width: 1100px;
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
+            gap: 20px;
             transition: all 0.3s ease;
+            justify-content: center;
+            align-items: stretch;
+            margin: 0 auto;
         }
 
         .prices-section.has-highlight {
             grid-template-columns: 1fr;
+            max-width: 600px;
         }
 
         .price-card {
@@ -329,11 +338,11 @@
 <body>
     <button class="fullscreen-btn" onclick="toggleFullscreen()">⛶ Fullscreen</button>
     
-    <div class="container">
-        <div class="logo-section">
-            <img src="/logo.png" alt="Safron" onerror="this.style.display='none'">
-        </div>
+    <div class="logo-section">
+        <img src="/logo.png" alt="Safron" onerror="this.style.display='none'">
+    </div>
 
+    <div class="container">
         <div class="clock-section">
             <div class="time" id="time">--:--:--</div>
             <div class="date" id="date">Loading...</div>
