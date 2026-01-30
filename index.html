@@ -261,24 +261,120 @@
         @media (max-width: 768px) {
             .prices-section {
                 grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+            
+            .price-card {
+                padding: 12px;
+            }
+            
+            .asset-price {
+                font-size: clamp(1.2rem, 5vw, 2rem);
+            }
+            
+            .asset-name {
+                font-size: clamp(0.6rem, 2.5vw, 0.9rem);
+            }
+            
+            .asset-change {
+                font-size: clamp(0.7rem, 2.5vw, 1rem);
+            }
+            
+            .time {
+                font-size: clamp(2rem, 10vw, 3rem);
+            }
+            
+            .date {
+                font-size: clamp(0.7rem, 3vw, 1rem);
+            }
+            
+            .container {
+                gap: 15px;
             }
         }
 
         @media (max-width: 480px) {
             body {
-                padding: 15px;
+                padding: 8px;
             }
 
             .prices-section {
-                grid-template-columns: 1fr;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
             }
 
             .price-card {
-                padding: 15px;
+                padding: 10px;
+                gap: 5px;
+            }
+            
+            .asset-price {
+                font-size: clamp(1rem, 4.5vw, 1.5rem);
+            }
+            
+            .asset-name {
+                font-size: clamp(0.55rem, 2vw, 0.75rem);
+                letter-spacing: 0.5px;
+            }
+            
+            .asset-change {
+                font-size: clamp(0.6rem, 2vw, 0.85rem);
+                gap: 4px;
+            }
+            
+            .time {
+                font-size: clamp(1.8rem, 8vw, 2.5rem);
+            }
+            
+            .date {
+                font-size: clamp(0.6rem, 2.5vw, 0.9rem);
             }
 
             .container {
-                gap: 25px;
+                gap: 10px;
+            }
+            
+            .clock-section {
+                padding: 10px 0;
+            }
+            
+            .logo-section {
+                max-width: 120px;
+                top: 5px;
+                left: 5px;
+            }
+            
+            .fullscreen-btn {
+                padding: 5px 8px;
+                font-size: 0.7rem;
+                top: 8px;
+                right: 8px;
+            }
+        }
+        
+        /* Very small screens */
+        @media (max-width: 360px) {
+            .prices-section {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 6px;
+            }
+            
+            .price-card {
+                padding: 8px;
+                gap: 3px;
+                border-radius: 8px;
+            }
+            
+            .asset-price {
+                font-size: clamp(0.9rem, 4vw, 1.3rem);
+            }
+            
+            .asset-name {
+                font-size: 0.5rem;
+            }
+            
+            .asset-change {
+                font-size: 0.55rem;
             }
         }
 
