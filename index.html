@@ -35,7 +35,6 @@
             align-items: center;
             justify-content: flex-start;
             padding: 10px;
-            padding-top: 60px;
         }
 
         /* MOBILE FIRST - Default styles for mobile */
@@ -50,38 +49,46 @@
             margin: 0 auto;
         }
 
-        /* Logo Section - Fixed top left */
+        /* Header row with logo and clock */
+        .header-row {
+            width: 100%;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            padding: 5px 0;
+            gap: 10px;
+        }
+
+        /* Logo Section */
         .logo-section {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            z-index: 100;
+            flex-shrink: 0;
         }
 
         .logo-section img {
-            width: 100px;
+            width: 130px;
             height: auto;
         }
 
         /* Clock Styles */
         .clock-section {
-            text-align: center;
-            width: 100%;
-            padding: 10px 0;
+            text-align: right;
+            flex: 1;
+            padding: 0;
         }
 
         .time {
             font-family: 'Orbitron', sans-serif;
-            font-size: 1.8rem;
+            font-size: 1.5rem;
             font-weight: 500;
             letter-spacing: 2px;
             color: #666666;
         }
 
         .date {
-            font-size: 0.7rem;
+            font-size: 0.6rem;
             color: #444444;
-            margin-top: 5px;
+            margin-top: 3px;
             letter-spacing: 1px;
         }
 
@@ -280,7 +287,6 @@
         @media (min-width: 900px) {
             body {
                 padding: 20px;
-                padding-top: 20px;
                 justify-content: center;
             }
             
@@ -291,20 +297,24 @@
                 justify-content: center;
             }
             
+            .header-row {
+                padding: 10px 0;
+            }
+            
             .logo-section img {
-                width: 180px;
+                width: 200px;
             }
             
             .clock-section {
-                padding: 20px 0;
+                padding: 0;
             }
             
             .time {
-                font-size: 3rem;
+                font-size: 2.5rem;
             }
             
             .date {
-                font-size: 1rem;
+                font-size: 0.9rem;
                 margin-top: 5px;
             }
             
@@ -402,15 +412,16 @@
 </head>
 <body>
     <button class="fullscreen-btn" onclick="toggleFullscreen()">⛶ Fullscreen</button>
-    
-    <div class="logo-section">
-        <img src="/logo.png" alt="Safron" onerror="this.style.display='none'">
-    </div>
 
     <div class="container">
-        <div class="clock-section">
-            <div class="time" id="time">--:--:--</div>
-            <div class="date" id="date">Loading...</div>
+        <div class="header-row">
+            <div class="logo-section">
+                <img src="/logo.png" alt="Safron" onerror="this.style.display='none'">
+            </div>
+            <div class="clock-section">
+                <div class="time" id="time">--:--:--</div>
+                <div class="date" id="date">Loading...</div>
+            </div>
         </div>
 
         <div class="prices-section" id="prices-section">
