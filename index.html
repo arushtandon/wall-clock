@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="theme-color" content="#000000">
+    <title>Market Clock</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&family=Roboto+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #000000;
+            color: #ffffff;
+            font-family: 'Roboto Mono', monospace;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        /* Clock Styles - Smaller */
+        .clock-section {
+            text-align: center;
+            width: 100%;
+        }
+
+        .time {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(1.5rem, 6vw, 3rem);
+            font-weight: 500;
+            letter-spacing: 3px;
+            color: #666666;
+        }
+
+        .date {
+            font-size: clamp(0.7rem, 2vw, 1rem);
+            color: #444444;
+            margin-top: 5px;
+            letter-spacing: 1px;
+        }
+
+        /* Prices Section */
+        .prices-section {
+            width: 100%;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .prices-section.has-highlight {
+            grid-template-columns: 1fr;
+        }
+
+        .price-card {
+            background: linear-gradient(145deg, #0a0a0a, #111111);
+            border: 1px solid #222222;
+            border-radius: 12px;
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .price-card:hover {
+            border-color: #444444;
+            transform: scale(1.02);
+        }
+
+        .price-card.hidden {
+            display: none;
+        }
+
+        .price-card.highlighted {
+            border-color: #666666;
+            padding: 40px;
+            background: linear-gradient(145deg, #111111, #1a1a1a);
+        }
+
+        .asset-name {
+            font-size: clamp(0.8rem, 3vw, 1.1rem);
+            color: #888888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+        }
+
+        .price-card.highlighted .asset-name {
+            font-size: clamp(1rem, 4vw, 1.5rem);
+            color: #aaaaaa;
+        }
+
+        .asset-price {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(2rem, 8vw, 4rem);
+            font-weight: 700;
+            color: #ffffff;
+            transition: all 0.3s ease;
+        }
+
+        .price-card.highlighted .asset-price {
+            font-size: clamp(3.5rem, 15vw, 8rem);
+        }
+
+        .asset-change {
+            font-size: clamp(1rem, 3vw, 1.4rem);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .price-card.highlighted .asset-change {
+            font-size: clamp(1.5rem, 5vw, 2.5rem);
+        }
+
+        .positive {
+            color: #00ff88;
+        }
+
+        .negative {
+            color: #ff4444;
+        }
+
+        .neutral {
+            color: #888888;
+        }
+
+        .arrow {
+            font-size: 0.8em;
+        }
+
+        /* Loading state */
+        .loading {
+            color: #444444;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+
+        /* Status indicator */
+        .status {
+            font-size: 0.7rem;
+            color: #444444;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            margin-right: 6px;
+            background: #444444;
+        }
+
+        .status-dot.connected {
+            background: #00ff88;
+            box-shadow: 0 0 10px #00ff88;
+        }
+
+        .status-dot.error {
+            background: #ff4444;
+        }
+
+        /* Commodities styling */
+        .silver .asset-price {
+            color: #c0c0c0;
+        }
+
+        .gold .asset-price {
+            color: #ffd700;
+        }
+
+        .sp500 .asset-price {
+            color: #4da6ff;
+        }
+
+        .nasdaq .asset-price {
+            color: #b366ff;
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 480px) {
+            body {
+                padding: 15px;
+            }
+
+            .prices-section {
+                grid-template-columns: 1fr;
+            }
+
+            .price-card {
+                padding: 15px;
+            }
+
+            .container {
+                gap: 25px;
+            }
+        }
+
+        /* Landscape mobile */
+        @media (max-height: 500px) and (orientation: landscape) {
+            .container {
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 15px;
+            }
+
+            .clock-section {
+                width: 100%;
+            }
+
+            .prices-section {
+                flex: 1;
+                min-width: 300px;
+            }
+
+            .time {
+                font-size: 2rem;
+            }
+
+            .asset-price {
+                font-size: clamp(1.5rem, 6vw, 2.5rem);
+            }
+
+            .price-card.highlighted .asset-price {
+                font-size: clamp(2.5rem, 10vw, 5rem);
+            }
+        }
+
+        /* Click hint */
+        .click-hint {
+            font-size: 0.7rem;
+            color: #333333;
+            text-align: center;
+            margin-top: 5px;
+        }
+
+        /* Full screen button */
+        .fullscreen-btn {
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            background: transparent;
+            border: 1px solid #333;
+            color: #666;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+
+        .fullscreen-btn:hover {
+            border-color: #555;
+            color: #999;
+        }
+
+        /* Hide cursor after inactivity */
+        body.hide-cursor {
+            cursor: none;
+        }
+
+        body.hide-cursor .fullscreen-btn {
+            opacity: 0;
+        }
+    </style>
+</head>
+<body>
+    <button class="fullscreen-btn" onclick="toggleFullscreen()">⛶ Fullscreen</button>
+    
+    <div class="container">
+        <div class="clock-section">
+            <div class="time" id="time">--:--:--</div>
+            <div class="date" id="date">Loading...</div>
+        </div>
+
+        <div class="prices-section" id="prices-section">
+            <div class="price-card silver" onclick="toggleHighlight(this)">
+                <div class="asset-name">XAG/USD Silver Spot</div>
+                <div class="asset-price loading" id="silver-price">---.--</div>
+                <div class="asset-change neutral" id="silver-change">---</div>
+            </div>
+
+            <div class="price-card gold" onclick="toggleHighlight(this)">
+                <div class="asset-name">XAU/USD Gold Spot</div>
+                <div class="asset-price loading" id="gold-price">-----.--</div>
+                <div class="asset-change neutral" id="gold-change">---</div>
+            </div>
+
+            <div class="price-card sp500" onclick="toggleHighlight(this)">
+                <div class="asset-name">S&P 500</div>
+                <div class="asset-price loading" id="sp500-price">-----.--</div>
+                <div class="asset-change neutral" id="sp500-change">---</div>
+            </div>
+
+            <div class="price-card nasdaq" onclick="toggleHighlight(this)">
+                <div class="asset-name">Nasdaq 100</div>
+                <div class="asset-price loading" id="nasdaq-price">------.--</div>
+                <div class="asset-change neutral" id="nasdaq-change">---</div>
+            </div>
+        </div>
+
+        <div class="click-hint">Click any asset to expand</div>
+
+        <div class="status">
+            <span class="status-dot" id="status-dot"></span>
+            <span id="status-text">Connecting...</span>
+        </div>
+    </div>
+
+    <script>
+        // Clock functionality
+        function updateClock() {
+            const now = new Date();
+            
+            // Time
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('time').textContent = `${hours}:${minutes}:${seconds}`;
+            
+            // Date
+            const options = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            };
+            document.getElementById('date').textContent = now.toLocaleDateString('en-US', options);
+        }
+
+        // Update clock every second
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Price data configuration - investing.com symbols
+        const assets = {
+            silver: {
+                symbol: 'XAG/USD',  // Silver Spot
+                elementPrice: 'silver-price',
+                elementChange: 'silver-change',
+                decimals: 4
+            },
+            gold: {
+                symbol: 'XAU/USD',  // Gold Spot
+                elementPrice: 'gold-price',
+                elementChange: 'gold-change',
+                decimals: 4
+            },
+            sp500: {
+                symbol: '^GSPC',  // S&P 500
+                elementPrice: 'sp500-price',
+                elementChange: 'sp500-change',
+                decimals: 4
+            },
+            nasdaq: {
+                symbol: '^NDX',  // Nasdaq 100
+                elementPrice: 'nasdaq-price',
+                elementChange: 'nasdaq-change',
+                decimals: 4
+            }
+        };
+
+        // Fetch prices from local server API
+        async function fetchPrices() {
+            // Use local server API (must run server.py)
+            const apiUrl = '/api/prices';
+            
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+                
+                const response = await fetch(apiUrl, {
+                    headers: { 'Accept': 'application/json' },
+                    signal: controller.signal,
+                    cache: 'no-store'
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.quoteResponse && data.quoteResponse.result) {
+                    updateStatus(true);
+                    return data.quoteResponse.result;
+                } else if (data.error) {
+                    throw new Error(data.error);
+                }
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    console.error('Fetch error:', error);
+                    updateStatus(false, error.message);
+                }
+            }
+            
+            return null;
+        }
+
+        // Update price display
+        function updatePriceDisplay(asset, quote) {
+            const priceElement = document.getElementById(asset.elementPrice);
+            const changeElement = document.getElementById(asset.elementChange);
+            
+            if (!quote) {
+                priceElement.classList.add('loading');
+                return;
+            }
+            
+            priceElement.classList.remove('loading');
+            
+            // Price
+            const price = quote.regularMarketPrice || quote.price;
+            if (price) {
+                priceElement.textContent = price.toLocaleString('en-US', {
+                    minimumFractionDigits: asset.decimals,
+                    maximumFractionDigits: asset.decimals
+                });
+            }
+            
+            // Change
+            const change = quote.regularMarketChange;
+            const changePercent = quote.regularMarketChangePercent;
+            
+            if (change !== undefined && changePercent !== undefined) {
+                const arrow = change >= 0 ? '▲' : '▼';
+                const sign = change >= 0 ? '+' : '';
+                changeElement.innerHTML = `
+                    <span class="arrow">${arrow}</span>
+                    ${sign}${change.toFixed(4)} (${sign}${changePercent.toFixed(2)}%)
+                `;
+                
+                changeElement.className = 'asset-change ' + (change >= 0 ? 'positive' : 'negative');
+            }
+        }
+
+        // Update connection status
+        function updateStatus(connected, errorMsg = '') {
+            const dot = document.getElementById('status-dot');
+            const text = document.getElementById('status-text');
+            
+            if (connected) {
+                dot.className = 'status-dot connected';
+                text.textContent = `Live · Updated: ${new Date().toLocaleTimeString()}`;
+            } else {
+                dot.className = 'status-dot error';
+                text.textContent = errorMsg ? `Error: ${errorMsg} · Retrying...` : 'Connection error · Retrying...';
+            }
+        }
+
+        // Track if currently fetching
+        let isFetching = false;
+        
+        // Main update function
+        async function updatePrices() {
+            if (isFetching) {
+                console.log('Already fetching, skipping...');
+                return;
+            }
+            
+            isFetching = true;
+            document.getElementById('status-text').textContent = 'Fetching prices...';
+            
+            try {
+                const quotes = await fetchPrices();
+                
+                if (quotes && quotes.length > 0) {
+                    for (const [key, asset] of Object.entries(assets)) {
+                        const quote = quotes.find(q => q.symbol === asset.symbol);
+                        updatePriceDisplay(asset, quote);
+                    }
+                    console.log('Prices updated successfully');
+                }
+            } catch (error) {
+                console.error('Update error:', error);
+                updateStatus(false, error.message);
+            } finally {
+                isFetching = false;
+            }
+        }
+
+        // Initial load and periodic updates
+        console.log('Market Clock starting...');
+        updatePrices();
+        
+        // Update every 0.5 seconds for live prices
+        const updateInterval = setInterval(updatePrices, 500);
+        
+        // Also update when page becomes visible again
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                console.log('Page visible, updating prices...');
+                updatePrices();
+            }
+        });
+
+        // Highlight/expand asset on click
+        let highlightedCard = null;
+        
+        function toggleHighlight(card) {
+            const pricesSection = document.getElementById('prices-section');
+            const allCards = document.querySelectorAll('.price-card');
+            
+            if (highlightedCard === card) {
+                // Un-highlight: show all cards
+                highlightedCard = null;
+                pricesSection.classList.remove('has-highlight');
+                allCards.forEach(c => {
+                    c.classList.remove('highlighted', 'hidden');
+                });
+            } else {
+                // Highlight this card, hide others
+                highlightedCard = card;
+                pricesSection.classList.add('has-highlight');
+                allCards.forEach(c => {
+                    if (c === card) {
+                        c.classList.add('highlighted');
+                        c.classList.remove('hidden');
+                    } else {
+                        c.classList.add('hidden');
+                        c.classList.remove('highlighted');
+                    }
+                });
+            }
+        }
+
+        // Fullscreen functionality
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log('Fullscreen error:', err);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // Hide cursor after inactivity
+        let cursorTimeout;
+        function resetCursorTimeout() {
+            document.body.classList.remove('hide-cursor');
+            clearTimeout(cursorTimeout);
+            cursorTimeout = setTimeout(() => {
+                document.body.classList.add('hide-cursor');
+            }, 3000);
+        }
+
+        document.addEventListener('mousemove', resetCursorTimeout);
+        document.addEventListener('touchstart', resetCursorTimeout);
+        resetCursorTimeout();
+
+        // Prevent screen from sleeping on mobile (where supported)
+        if ('wakeLock' in navigator) {
+            let wakeLock = null;
+            
+            async function requestWakeLock() {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                } catch (err) {
+                    console.log('Wake Lock error:', err);
+                }
+            }
+            
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') {
+                    requestWakeLock();
+                }
+            });
+            
+            requestWakeLock();
+        }
+    </script>
+</body>
+</html>
