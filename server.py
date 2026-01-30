@@ -296,6 +296,22 @@ def index():
 def logo():
     return send_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logo.png'), mimetype='image/png')
 
+@app.route('/manifest.json')
+def manifest():
+    return send_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'manifest.json'), mimetype='application/json')
+
+@app.route('/sw.js')
+def service_worker():
+    return send_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sw.js'), mimetype='application/javascript')
+
+@app.route('/icon-192.png')
+def icon_192():
+    return send_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icon-192.png'), mimetype='image/png')
+
+@app.route('/icon-512.png')
+def icon_512():
+    return send_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icon-512.png'), mimetype='image/png')
+
 @app.route('/api/prices')
 def api_prices():
     with price_cache['lock']:
