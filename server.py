@@ -175,17 +175,38 @@ def fetch_from_investing_scrape():
             if match:
                 price = float(match.group(1))
             
-            # Extract change value
-            match = re.search(r'"change":\s*(-?[\d.]+)', html)
+            # Try multiple patterns for change value
+            # Pattern 1: "chg" field (common in investing.com)
+            match = re.search(r'"chg":\s*"?(-?[\d.]+)"?', html)
             if match:
                 change = float(match.group(1))
+            else:
+                # Pattern 2: "change" field with context
+                match = re.search(r'"change":\s*(-?[\d.]+)(?:,|")', html)
+                if match:
+                    change = float(match.group(1))
             
-            # Extract change percent
-            match = re.search(r'"changePercent":\s*(-?[\d.]+)', html)
+            # Try multiple patterns for change percent
+            # Pattern 1: "chgPer" field
+            match = re.search(r'"chgPer":\s*"?(-?[\d.]+)"?', html)
             if match:
                 change_pct = float(match.group(1))
-            elif match := re.search(r'"pcp":\s*"?(-?[\d.]+)"?', html):
-                change_pct = float(match.group(1))
+            else:
+                # Pattern 2: "pcp" field (percent change)
+                match = re.search(r'"pcp":\s*"?(-?[\d.]+)"?', html)
+                if match:
+                    change_pct = float(match.group(1))
+                else:
+                    # Pattern 3: "changePercent" field
+                    match = re.search(r'"changePercent":\s*(-?[\d.]+)', html)
+                    if match:
+                        change_pct = float(match.group(1))
+                    else:
+                        # Pattern 4: Calculate from price and change
+                        if change != 0 and price:
+                            prev_price = price - change
+                            if prev_price > 0:
+                                change_pct = (change / prev_price) * 100
             
             if price and price > 0:
                 results.append({
@@ -194,7 +215,7 @@ def fetch_from_investing_scrape():
                     'regularMarketChange': change,
                     'regularMarketChangePercent': change_pct,
                 })
-                print(f"  {asset['name']}: ${price:,.2f} ({change_pct:+.2f}%)", flush=True)
+                print(f"  {asset['name']}: ${price:,.2f} (chg: {change:+.4f}, {change_pct:+.4f}%)", flush=True)
                     
         except Exception as e:
             print(f"  {asset['name']}: Scrape error - {e}", flush=True)
