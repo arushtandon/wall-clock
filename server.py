@@ -286,6 +286,10 @@ start_background_updater()
 def index():
     return send_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'index.html'))
 
+@app.route('/logo.png')
+def logo():
+    return send_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logo.png'), mimetype='image/png')
+
 @app.route('/api/prices')
 def api_prices():
     with price_cache['lock']:

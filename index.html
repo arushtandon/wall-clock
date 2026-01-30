@@ -32,11 +32,26 @@
 
         .container {
             width: 100%;
-            max-width: 900px;
+            max-width: 1000px;
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
             gap: 20px;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        /* Logo Section */
+        .logo-section {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .logo-section img {
+            max-width: 200px;
+            height: auto;
+            filter: brightness(1.1);
         }
 
         /* Clock Styles - Smaller */
@@ -315,6 +330,10 @@
     <button class="fullscreen-btn" onclick="toggleFullscreen()">⛶ Fullscreen</button>
     
     <div class="container">
+        <div class="logo-section">
+            <img src="/logo.png" alt="Safron" onerror="this.style.display='none'">
+        </div>
+
         <div class="clock-section">
             <div class="time" id="time">--:--:--</div>
             <div class="date" id="date">Loading...</div>
