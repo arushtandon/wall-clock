@@ -91,10 +91,12 @@
             max-width: 1100px;
             display: grid;
             grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(auto-fit, 1fr);
             gap: 20px;
             transition: all 0.3s ease;
             justify-content: center;
             align-items: stretch;
+            align-content: stretch;
             margin: 0 auto;
         }
 
@@ -265,167 +267,168 @@
 
         /* Mobile optimizations */
         @media (max-width: 768px) {
+            html, body {
+                height: 100vh;
+                height: 100dvh; /* dynamic viewport height for mobile */
+                overflow: hidden;
+            }
+            
             body {
-                padding: 2px;
+                padding: 1vh 1vw;
             }
             
             .container {
-                gap: 2px;
-                padding: 2px;
-                justify-content: space-evenly;
-                height: 100vh;
+                gap: 0;
+                padding: 0;
+                justify-content: flex-start;
+                height: 100%;
+                max-height: 100vh;
+                max-height: 100dvh;
             }
             
             .logo-section {
-                position: relative;
-                top: auto;
-                left: auto;
-                margin: 0;
-                flex-shrink: 0;
-            }
-            
-            .logo-section img {
-                max-width: 70px;
-                height: auto;
+                display: none;
             }
             
             .clock-section {
                 padding: 0;
-                flex-shrink: 0;
+                height: 8vh;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
             }
             
             .time {
-                font-size: 1.2rem;
+                font-size: 5vh;
+                line-height: 1;
             }
             
             .date {
-                font-size: 0.5rem;
+                font-size: 1.5vh;
                 margin-top: 0;
             }
             
             .prices-section {
                 grid-template-columns: repeat(2, 1fr);
-                gap: 3px;
+                gap: 1vw;
                 max-width: 100%;
-                flex: 1;
-                align-content: center;
+                height: 88vh;
+                align-content: stretch;
             }
             
             .price-card {
-                padding: 2vh 2vw;
-                gap: 1px;
-                border-radius: 6px;
+                padding: 1vh 2vw;
+                gap: 0;
+                border-radius: 4px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                height: 100%;
+                min-height: 0;
             }
             
             .asset-name {
-                font-size: 2vw;
+                font-size: 2.5vw;
                 letter-spacing: 0;
+                line-height: 1.2;
             }
             
             .asset-price {
-                font-size: 4vw;
+                font-size: 5vw;
+                line-height: 1.2;
             }
             
             .asset-change {
-                font-size: 2vw;
-                gap: 2px;
+                font-size: 2.2vw;
+                gap: 1px;
+                line-height: 1.2;
             }
             
-            .fullscreen-btn, .click-hint {
+            .fullscreen-btn, .click-hint, .status {
                 display: none;
-            }
-            
-            .status {
-                font-size: 0.4rem;
-                margin: 0;
-                flex-shrink: 0;
-            }
-            
-            .status-dot {
-                width: 4px;
-                height: 4px;
             }
         }
 
-        /* Portrait mobile phones */
+        /* Small mobile phones */
         @media (max-width: 500px) {
-            .logo-section img {
-                max-width: 60px;
-            }
-            
             .time {
-                font-size: 1rem;
+                font-size: 4vh;
             }
             
             .date {
-                font-size: 0.45rem;
+                font-size: 1.2vh;
             }
 
             .prices-section {
-                gap: 2px;
-            }
-
-            .price-card {
-                padding: 1.5vh 1.5vw;
+                gap: 0.5vw;
             }
             
             .asset-name {
-                font-size: 2.2vw;
+                font-size: 2.8vw;
             }
             
             .asset-price {
-                font-size: 4.5vw;
+                font-size: 5.5vw;
             }
             
             .asset-change {
-                font-size: 2vw;
+                font-size: 2.5vw;
             }
         }
         
         /* Very small screens */
         @media (max-width: 380px) {
-            .logo-section img {
-                max-width: 50px;
+            .clock-section {
+                height: 6vh;
             }
             
             .time {
-                font-size: 0.9rem;
+                font-size: 3.5vh;
+            }
+            
+            .date {
+                font-size: 1vh;
             }
             
             .prices-section {
-                gap: 2px;
+                height: 92vh;
             }
             
             .price-card {
-                padding: 1vh 1vw;
-                border-radius: 4px;
+                padding: 0.5vh 1vw;
+                border-radius: 3px;
             }
             
             .asset-price {
-                font-size: 4vw;
+                font-size: 5vw;
             }
             
             .asset-name {
-                font-size: 2vw;
+                font-size: 2.5vw;
             }
             
             .asset-change {
-                font-size: 1.8vw;
+                font-size: 2.2vw;
             }
         }
 
         /* Landscape mobile */
         @media (max-height: 500px) and (orientation: landscape) {
+            html, body {
+                height: 100vh;
+                height: 100dvh;
+            }
+            
             body {
-                padding: 2px;
+                padding: 1vh 1vw;
             }
             
             .container {
                 flex-direction: column;
-                justify-content: space-evenly;
-                gap: 2px;
-                padding: 2px;
-                height: 100vh;
+                justify-content: center;
+                gap: 0;
+                padding: 0;
+                height: 100%;
             }
 
             .clock-section {
@@ -434,27 +437,32 @@
 
             .prices-section {
                 grid-template-columns: repeat(4, 1fr);
-                gap: 3px;
+                grid-template-rows: repeat(2, 1fr);
+                gap: 1vw;
                 width: 100%;
-                flex: 1;
-                align-content: center;
+                height: 96vh;
+                align-content: stretch;
             }
 
             .price-card {
                 padding: 1vh 1vw;
-                gap: 1px;
+                gap: 0;
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
             }
             
             .asset-name {
-                font-size: 1.5vh;
+                font-size: 2vh;
             }
             
             .asset-price {
-                font-size: 3vh;
+                font-size: 5vh;
             }
             
             .asset-change {
-                font-size: 1.3vh;
+                font-size: 2vh;
             }
 
             .logo-section, .fullscreen-btn, .click-hint, .status {
