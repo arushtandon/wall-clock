@@ -21,6 +21,7 @@
 
         html, body {
             height: 100%;
+            height: 100dvh;
             width: 100%;
             margin: 0;
             padding: 0;
@@ -34,93 +35,101 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            padding: 15px;
+            justify-content: flex-start;
+            padding: 2vw;
         }
 
+        /* MOBILE FIRST - Default styles for mobile */
         .container {
             width: 100%;
-            max-width: 1200px;
             height: 100%;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: space-evenly;
-            gap: 10px;
-            padding: 10px;
+            justify-content: flex-start;
+            gap: 1vh;
+            padding: 0;
             margin: 0 auto;
         }
 
-        /* Logo Section - Fixed to top left corner */
+        /* Logo Section */
         .logo-section {
-            position: fixed;
-            top: 15px;
-            left: 15px;
-            z-index: 100;
+            width: 100%;
+            text-align: center;
+            padding: 0;
+            flex-shrink: 0;
+            height: 5vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .logo-section img {
-            max-width: 220px;
-            height: auto;
+            max-height: 4vh;
+            width: auto;
         }
 
-        /* Clock Styles - Smaller */
+        /* Clock Styles */
         .clock-section {
             text-align: center;
             width: 100%;
+            flex-shrink: 0;
+            height: 6vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
 
         .time {
             font-family: 'Orbitron', sans-serif;
-            font-size: clamp(1.5rem, 6vw, 3rem);
+            font-size: 4vh;
             font-weight: 500;
-            letter-spacing: 3px;
+            letter-spacing: 2px;
             color: #666666;
+            line-height: 1;
         }
 
         .date {
-            font-size: clamp(0.7rem, 2vw, 1rem);
+            font-size: 1.5vh;
             color: #444444;
-            margin-top: 5px;
+            margin-top: 0;
             letter-spacing: 1px;
         }
 
-        /* Prices Section */
+        /* Prices Section - Mobile default: 2 columns */
         .prices-section {
             width: 100%;
-            max-width: 1100px;
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            grid-template-rows: repeat(auto-fit, 1fr);
-            gap: 20px;
-            transition: all 0.3s ease;
-            justify-content: center;
-            align-items: stretch;
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: 1vw;
+            flex: 1;
             align-content: stretch;
-            margin: 0 auto;
+            max-height: 85vh;
         }
 
         .prices-section.has-highlight {
             grid-template-columns: 1fr;
-            max-width: 600px;
         }
 
         .price-card {
             background: linear-gradient(145deg, #0a0a0a, #111111);
             border: 1px solid #222222;
-            border-radius: 12px;
-            padding: 25px;
+            border-radius: 6px;
+            padding: 1vh 2vw;
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            transition: all 0.3s ease;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 0;
             cursor: pointer;
             user-select: none;
+            min-height: 0;
+            overflow: hidden;
         }
 
         .price-card:hover {
             border-color: #444444;
-            transform: scale(1.02);
         }
 
         .price-card.hidden {
@@ -129,7 +138,6 @@
 
         .price-card.highlighted {
             border-color: #666666;
-            padding: 40px;
             background: linear-gradient(145deg, #111111, #1a1a1a);
         }
 
@@ -137,50 +145,50 @@
         .price-card.alert-positive {
             background: linear-gradient(145deg, #0a1a0a, #112211);
             border: 2px solid #00ff88;
-            box-shadow: 0 0 15px rgba(0, 255, 136, 0.3);
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
         }
 
         .price-card.alert-negative {
             background: linear-gradient(145deg, #1a0a0a, #221111);
             border: 2px solid #ff4444;
-            box-shadow: 0 0 15px rgba(255, 68, 68, 0.3);
+            box-shadow: 0 0 10px rgba(255, 68, 68, 0.3);
         }
 
         .asset-name {
-            font-size: clamp(0.8rem, 3vw, 1.1rem);
+            font-size: 2.5vw;
             color: #888888;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            transition: all 0.3s ease;
+            letter-spacing: 0;
+            line-height: 1.2;
         }
 
         .price-card.highlighted .asset-name {
-            font-size: clamp(1rem, 4vw, 1.5rem);
+            font-size: 3vw;
             color: #aaaaaa;
         }
 
         .asset-price {
             font-family: 'Orbitron', sans-serif;
-            font-size: clamp(2rem, 8vw, 4rem);
+            font-size: 5vw;
             font-weight: 700;
             color: #ffffff;
-            transition: all 0.3s ease;
+            line-height: 1.2;
         }
 
         .price-card.highlighted .asset-price {
-            font-size: clamp(3.5rem, 15vw, 8rem);
+            font-size: 8vw;
         }
 
         .asset-change {
-            font-size: clamp(1rem, 3vw, 1.4rem);
+            font-size: 2.2vw;
             display: flex;
             align-items: center;
-            gap: 8px;
-            transition: all 0.3s ease;
+            gap: 4px;
+            line-height: 1.2;
         }
 
         .price-card.highlighted .asset-change {
-            font-size: clamp(1.5rem, 5vw, 2.5rem);
+            font-size: 3vw;
         }
 
         .positive {
@@ -210,12 +218,9 @@
             50% { opacity: 1; }
         }
 
-        /* Status indicator */
+        /* Status indicator - hidden on mobile by default */
         .status {
-            font-size: 0.7rem;
-            color: #444444;
-            text-align: center;
-            margin-top: 20px;
+            display: none;
         }
 
         .status-dot {
@@ -234,6 +239,16 @@
 
         .status-dot.error {
             background: #ff4444;
+        }
+        
+        /* Click hint - hidden on mobile */
+        .click-hint {
+            display: none;
+        }
+        
+        /* Fullscreen button - hidden on mobile */
+        .fullscreen-btn {
+            display: none;
         }
 
         /* Commodities styling */
@@ -265,172 +280,8 @@
             color: #ff9933;
         }
 
-        /* Mobile optimizations */
-        @media (max-width: 768px) {
-            html, body {
-                height: 100vh;
-                height: 100dvh; /* dynamic viewport height for mobile */
-                overflow: hidden;
-            }
-            
-            body {
-                padding: 1vh 1vw;
-            }
-            
-            .container {
-                gap: 0;
-                padding: 0;
-                justify-content: flex-start;
-                height: 100%;
-                max-height: 100vh;
-                max-height: 100dvh;
-            }
-            
-            .logo-section {
-                display: none;
-            }
-            
-            .clock-section {
-                padding: 0;
-                height: 8vh;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-            }
-            
-            .time {
-                font-size: 5vh;
-                line-height: 1;
-            }
-            
-            .date {
-                font-size: 1.5vh;
-                margin-top: 0;
-            }
-            
-            .prices-section {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 1vw;
-                max-width: 100%;
-                height: 88vh;
-                align-content: stretch;
-            }
-            
-            .price-card {
-                padding: 1vh 2vw;
-                gap: 0;
-                border-radius: 4px;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-                height: 100%;
-                min-height: 0;
-            }
-            
-            .asset-name {
-                font-size: 2.5vw;
-                letter-spacing: 0;
-                line-height: 1.2;
-            }
-            
-            .asset-price {
-                font-size: 5vw;
-                line-height: 1.2;
-            }
-            
-            .asset-change {
-                font-size: 2.2vw;
-                gap: 1px;
-                line-height: 1.2;
-            }
-            
-            .fullscreen-btn, .click-hint, .status {
-                display: none;
-            }
-        }
-
-        /* Small mobile phones */
-        @media (max-width: 500px) {
-            .time {
-                font-size: 4vh;
-            }
-            
-            .date {
-                font-size: 1.2vh;
-            }
-
-            .prices-section {
-                gap: 0.5vw;
-            }
-            
-            .asset-name {
-                font-size: 2.8vw;
-            }
-            
-            .asset-price {
-                font-size: 5.5vw;
-            }
-            
-            .asset-change {
-                font-size: 2.5vw;
-            }
-        }
-        
-        /* Very small screens */
-        @media (max-width: 380px) {
-            .clock-section {
-                height: 6vh;
-            }
-            
-            .time {
-                font-size: 3.5vh;
-            }
-            
-            .date {
-                font-size: 1vh;
-            }
-            
-            .prices-section {
-                height: 92vh;
-            }
-            
-            .price-card {
-                padding: 0.5vh 1vw;
-                border-radius: 3px;
-            }
-            
-            .asset-price {
-                font-size: 5vw;
-            }
-            
-            .asset-name {
-                font-size: 2.5vw;
-            }
-            
-            .asset-change {
-                font-size: 2.2vw;
-            }
-        }
-
         /* Landscape mobile */
-        @media (max-height: 500px) and (orientation: landscape) {
-            html, body {
-                height: 100vh;
-                height: 100dvh;
-            }
-            
-            body {
-                padding: 1vh 1vw;
-            }
-            
-            .container {
-                flex-direction: column;
-                justify-content: center;
-                gap: 0;
-                padding: 0;
-                height: 100%;
-            }
-
+        @media (orientation: landscape) and (max-height: 500px) {
             .clock-section {
                 display: none;
             }
@@ -438,65 +289,146 @@
             .prices-section {
                 grid-template-columns: repeat(4, 1fr);
                 grid-template-rows: repeat(2, 1fr);
-                gap: 1vw;
-                width: 100%;
-                height: 96vh;
-                align-content: stretch;
-            }
-
-            .price-card {
-                padding: 1vh 1vw;
-                gap: 0;
-                height: 100%;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
+                max-height: 95vh;
             }
             
             .asset-name {
-                font-size: 2vh;
+                font-size: 1.8vh;
             }
             
             .asset-price {
-                font-size: 5vh;
+                font-size: 4vh;
             }
             
             .asset-change {
-                font-size: 2vh;
-            }
-
-            .logo-section, .fullscreen-btn, .click-hint, .status {
-                display: none;
+                font-size: 1.5vh;
             }
         }
 
-        /* Click hint */
-        .click-hint {
-            font-size: 0.7rem;
-            color: #333333;
-            text-align: center;
-            margin-top: 5px;
-        }
-
-        /* Full screen button */
-        .fullscreen-btn {
-            position: fixed;
-            top: 15px;
-            right: 15px;
-            background: transparent;
-            border: 1px solid #333;
-            color: #666;
-            padding: 8px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            transition: all 0.3s ease;
-            z-index: 100;
-        }
-
-        .fullscreen-btn:hover {
-            border-color: #555;
-            color: #999;
+        /* DESKTOP STYLES - only for large screens */
+        @media (min-width: 900px) {
+            body {
+                padding: 20px;
+                justify-content: center;
+            }
+            
+            .container {
+                max-width: 1200px;
+                gap: 25px;
+                padding: 30px;
+                justify-content: center;
+            }
+            
+            .logo-section {
+                position: fixed;
+                top: 15px;
+                left: 15px;
+                width: auto;
+                height: auto;
+            }
+            
+            .logo-section img {
+                max-width: 220px;
+                max-height: none;
+            }
+            
+            .clock-section {
+                height: auto;
+                padding: 20px 0;
+            }
+            
+            .time {
+                font-size: 3rem;
+            }
+            
+            .date {
+                font-size: 1rem;
+                margin-top: 5px;
+            }
+            
+            .prices-section {
+                grid-template-columns: repeat(3, 1fr);
+                grid-template-rows: auto;
+                gap: 20px;
+                max-width: 1100px;
+                max-height: none;
+                flex: none;
+            }
+            
+            .price-card {
+                padding: 25px;
+                border-radius: 12px;
+                gap: 10px;
+            }
+            
+            .price-card:hover {
+                transform: scale(1.02);
+            }
+            
+            .asset-name {
+                font-size: 1.1rem;
+            }
+            
+            .asset-price {
+                font-size: 3rem;
+            }
+            
+            .asset-change {
+                font-size: 1.2rem;
+                gap: 8px;
+            }
+            
+            .price-card.highlighted {
+                padding: 40px;
+            }
+            
+            .price-card.highlighted .asset-name {
+                font-size: 1.5rem;
+            }
+            
+            .price-card.highlighted .asset-price {
+                font-size: 6rem;
+            }
+            
+            .price-card.highlighted .asset-change {
+                font-size: 2rem;
+            }
+            
+            .status {
+                display: block;
+                font-size: 0.7rem;
+                color: #444444;
+                text-align: center;
+                margin-top: 20px;
+            }
+            
+            .click-hint {
+                display: block;
+                font-size: 0.7rem;
+                color: #333333;
+                text-align: center;
+                margin-top: 5px;
+            }
+            
+            .fullscreen-btn {
+                display: block;
+                position: fixed;
+                top: 15px;
+                right: 15px;
+                background: transparent;
+                border: 1px solid #333;
+                color: #666;
+                padding: 8px 12px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 0.8rem;
+                z-index: 100;
+            }
+            
+            .fullscreen-btn:hover {
+                border-color: #555;
+                color: #999;
+            }
         }
 
         /* Hide cursor after inactivity */
