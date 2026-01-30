@@ -123,6 +123,19 @@
             background: linear-gradient(145deg, #111111, #1a1a1a);
         }
 
+        /* Alert highlights for +5% or -5% changes */
+        .price-card.alert-positive {
+            background: linear-gradient(145deg, #0a1a0a, #112211);
+            border: 2px solid #00ff88;
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.3);
+        }
+
+        .price-card.alert-negative {
+            background: linear-gradient(145deg, #1a0a0a, #221111);
+            border: 2px solid #ff4444;
+            box-shadow: 0 0 15px rgba(255, 68, 68, 0.3);
+        }
+
         .asset-name {
             font-size: clamp(0.8rem, 3vw, 1.1rem);
             color: #888888;
@@ -500,6 +513,7 @@
         function updatePriceDisplay(asset, quote) {
             const priceElement = document.getElementById(asset.elementPrice);
             const changeElement = document.getElementById(asset.elementChange);
+            const cardElement = priceElement.closest('.price-card');
             
             if (!quote) {
                 priceElement.classList.add('loading');
@@ -530,6 +544,16 @@
                 `;
                 
                 changeElement.className = 'asset-change ' + (change >= 0 ? 'positive' : 'negative');
+                
+                // Highlight card if change is >= +5% or <= -5%
+                if (cardElement) {
+                    cardElement.classList.remove('alert-positive', 'alert-negative');
+                    if (changePercent >= 5) {
+                        cardElement.classList.add('alert-positive');
+                    } else if (changePercent <= -5) {
+                        cardElement.classList.add('alert-negative');
+                    }
+                }
             }
         }
 
