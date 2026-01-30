@@ -170,43 +170,35 @@ def fetch_from_investing_scrape():
             change = 0
             change_pct = 0
             
-            # Extract price - look for "last": value in JSON data
-            match = re.search(r'"last":\s*([\d.]+)', html)
-            if match:
-                price = float(match.group(1))
-            
-            # Try multiple patterns for change value
-            # Pattern 1: "chg" field (common in investing.com)
-            match = re.search(r'"chg":\s*"?(-?[\d.]+)"?', html)
-            if match:
-                change = float(match.group(1))
+            # Extract data block with last, change, and changePcr
+            # Pattern: "last":106.6345,"changePcr":-7.81,"change":-9.031
+            data_match = re.search(r'"last":\s*([\d.]+)[^}]*?"changePcr":\s*(-?[\d.]+)[^}]*?"change":\s*(-?[\d.]+)', html)
+            if data_match:
+                price = float(data_match.group(1))
+                change_pct = float(data_match.group(2))
+                change = float(data_match.group(3))
             else:
-                # Pattern 2: "change" field with context
-                match = re.search(r'"change":\s*(-?[\d.]+)(?:,|")', html)
-                if match:
-                    change = float(match.group(1))
-            
-            # Try multiple patterns for change percent
-            # Pattern 1: "chgPer" field
-            match = re.search(r'"chgPer":\s*"?(-?[\d.]+)"?', html)
-            if match:
-                change_pct = float(match.group(1))
-            else:
-                # Pattern 2: "pcp" field (percent change)
-                match = re.search(r'"pcp":\s*"?(-?[\d.]+)"?', html)
-                if match:
-                    change_pct = float(match.group(1))
+                # Fallback: try alternate order
+                data_match = re.search(r'"last":\s*([\d.]+)[^}]*?"change":\s*(-?[\d.]+)[^}]*?"changePcr":\s*(-?[\d.]+)', html)
+                if data_match:
+                    price = float(data_match.group(1))
+                    change = float(data_match.group(2))
+                    change_pct = float(data_match.group(3))
                 else:
-                    # Pattern 3: "changePercent" field
-                    match = re.search(r'"changePercent":\s*(-?[\d.]+)', html)
+                    # Last fallback: just get price
+                    match = re.search(r'"last":\s*([\d.]+)', html)
+                    if match:
+                        price = float(match.group(1))
+                    
+                    # Try to get change separately
+                    match = re.search(r'"change":\s*(-?[\d.]+)', html)
+                    if match:
+                        change = float(match.group(1))
+                    
+                    # Try changePcr
+                    match = re.search(r'"changePcr":\s*(-?[\d.]+)', html)
                     if match:
                         change_pct = float(match.group(1))
-                    else:
-                        # Pattern 4: Calculate from price and change
-                        if change != 0 and price:
-                            prev_price = price - change
-                            if prev_price > 0:
-                                change_pct = (change / prev_price) * 100
             
             if price and price > 0:
                 results.append({
