@@ -64,7 +64,7 @@
         .prices-section {
             width: 100%;
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 15px;
             transition: all 0.3s ease;
         }
@@ -208,7 +208,21 @@
             color: #b366ff;
         }
 
+        .sp500-futures .asset-price {
+            color: #00bfff;
+        }
+
+        .nasdaq-futures .asset-price {
+            color: #ff66b2;
+        }
+
         /* Mobile optimizations */
+        @media (max-width: 768px) {
+            .prices-section {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
         @media (max-width: 480px) {
             body {
                 padding: 15px;
@@ -330,6 +344,18 @@
                 <div class="asset-price loading" id="nasdaq-price">------.--</div>
                 <div class="asset-change neutral" id="nasdaq-change">---</div>
             </div>
+
+            <div class="price-card sp500-futures" onclick="toggleHighlight(this)">
+                <div class="asset-name">S&P 500 Futures</div>
+                <div class="asset-price loading" id="sp500-futures-price">-----.--</div>
+                <div class="asset-change neutral" id="sp500-futures-change">---</div>
+            </div>
+
+            <div class="price-card nasdaq-futures" onclick="toggleHighlight(this)">
+                <div class="asset-name">Nasdaq Futures</div>
+                <div class="asset-price loading" id="nasdaq-futures-price">------.--</div>
+                <div class="asset-change neutral" id="nasdaq-futures-change">---</div>
+            </div>
         </div>
 
         <div class="click-hint">Click any asset to expand</div>
@@ -389,6 +415,18 @@
                 symbol: '^NDX',  // Nasdaq 100
                 elementPrice: 'nasdaq-price',
                 elementChange: 'nasdaq-change',
+                decimals: 4
+            },
+            sp500Futures: {
+                symbol: 'ES',  // S&P 500 Futures
+                elementPrice: 'sp500-futures-price',
+                elementChange: 'sp500-futures-change',
+                decimals: 4
+            },
+            nasdaqFutures: {
+                symbol: 'NQ',  // Nasdaq Futures
+                elementPrice: 'nasdaq-futures-price',
+                elementChange: 'nasdaq-futures-change',
                 decimals: 4
             }
         };

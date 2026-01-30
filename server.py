@@ -49,6 +49,18 @@ ASSETS = {
         'symbol': '^NDX',
         'name': 'Nasdaq 100',
         'url': 'https://www.investing.com/indices/nq-100'
+    },
+    'sp500_futures': {
+        'pair_id': '8839',
+        'symbol': 'ES',
+        'name': 'S&P 500 Futures',
+        'url': 'https://www.investing.com/indices/us-spx-500-futures'
+    },
+    'nasdaq_futures': {
+        'pair_id': '8874',
+        'symbol': 'NQ',
+        'name': 'Nasdaq Futures',
+        'url': 'https://www.investing.com/indices/nq-100-futures'
     }
 }
 
