@@ -61,6 +61,12 @@ ASSETS = {
         'symbol': 'NQ',
         'name': 'Nasdaq Futures',
         'url': 'https://www.investing.com/indices/nq-100-futures'
+    },
+    'nifty_futures': {
+        'pair_id': '17940',
+        'symbol': 'NIFTY',
+        'name': 'Nifty Futures',
+        'url': 'https://www.investing.com/indices/s-p-cnx-nifty-futures'
     }
 }
 

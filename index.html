@@ -251,6 +251,10 @@
             color: #ff66b2;
         }
 
+        .nifty-futures .asset-price {
+            color: #ff9933;
+        }
+
         /* Mobile optimizations */
         @media (max-width: 768px) {
             .prices-section {
@@ -395,6 +399,12 @@
                 <div class="asset-price loading" id="nasdaq-futures-price">------.--</div>
                 <div class="asset-change neutral" id="nasdaq-futures-change">---</div>
             </div>
+
+            <div class="price-card nifty-futures" onclick="toggleHighlight(this)">
+                <div class="asset-name">Nifty Futures</div>
+                <div class="asset-price loading" id="nifty-futures-price">------.--</div>
+                <div class="asset-change neutral" id="nifty-futures-change">---</div>
+            </div>
         </div>
 
         <div class="click-hint">Click any asset to expand</div>
@@ -467,6 +477,12 @@
                 elementPrice: 'nasdaq-futures-price',
                 elementChange: 'nasdaq-futures-change',
                 decimals: 4
+            },
+            niftyFutures: {
+                symbol: 'NIFTY',  // Nifty Futures
+                elementPrice: 'nifty-futures-price',
+                elementChange: 'nifty-futures-change',
+                decimals: 2
             }
         };
 
