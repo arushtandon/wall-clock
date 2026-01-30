@@ -24,19 +24,19 @@ price_cache = {
     'lock': threading.Lock()
 }
 
-# Investing.com configuration
+# Investing.com configuration - Using exact URLs for live prices
 ASSETS = {
     'silver': {
         'pair_id': '8836',
         'symbol': 'XAG/USD',
-        'name': 'Silver Spot',
-        'url': 'https://www.investing.com/currencies/xag-usd'
+        'name': 'Silver',
+        'url': 'https://www.investing.com/commodities/silver'
     },
     'gold': {
         'pair_id': '8830',
         'symbol': 'XAU/USD', 
-        'name': 'Gold Spot',
-        'url': 'https://www.investing.com/currencies/xau-usd'
+        'name': 'Gold',
+        'url': 'https://www.investing.com/commodities/gold'
     },
     'sp500': {
         'pair_id': '166',
@@ -45,19 +45,19 @@ ASSETS = {
         'url': 'https://www.investing.com/indices/us-spx-500'
     },
     'nasdaq': {
-        'pair_id': '20',
-        'symbol': '^NDX',
-        'name': 'Nasdaq 100',
-        'url': 'https://www.investing.com/indices/nq-100'
+        'pair_id': '14958',
+        'symbol': '^IXIC',
+        'name': 'Nasdaq',
+        'url': 'https://www.investing.com/indices/nasdaq-composite'
     },
     'sp500_futures': {
-        'pair_id': '8839',
+        'pair_id': '1175153',
         'symbol': 'ES',
         'name': 'S&P 500 Futures',
         'url': 'https://www.investing.com/indices/us-spx-500-futures'
     },
     'nasdaq_futures': {
-        'pair_id': '8874',
+        'pair_id': '1175151',
         'symbol': 'NQ',
         'name': 'Nasdaq Futures',
         'url': 'https://www.investing.com/indices/nq-100-futures'

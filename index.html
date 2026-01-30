@@ -426,13 +426,13 @@
 
         <div class="prices-section" id="prices-section">
             <div class="price-card silver" onclick="toggleHighlight(this)">
-                <div class="asset-name">XAG/USD Silver Spot</div>
+                <div class="asset-name">Silver</div>
                 <div class="asset-price loading" id="silver-price">---.--</div>
                 <div class="asset-change neutral" id="silver-change">---</div>
             </div>
 
             <div class="price-card gold" onclick="toggleHighlight(this)">
-                <div class="asset-name">XAU/USD Gold Spot</div>
+                <div class="asset-name">Gold</div>
                 <div class="asset-price loading" id="gold-price">-----.--</div>
                 <div class="asset-change neutral" id="gold-change">---</div>
             </div>
@@ -444,7 +444,7 @@
             </div>
 
             <div class="price-card nasdaq" onclick="toggleHighlight(this)">
-                <div class="asset-name">Nasdaq 100</div>
+                <div class="asset-name">Nasdaq</div>
                 <div class="asset-price loading" id="nasdaq-price">------.--</div>
                 <div class="asset-change neutral" id="nasdaq-change">---</div>
             </div>
@@ -504,13 +504,13 @@
         // Price data configuration - investing.com symbols
         const assets = {
             silver: {
-                symbol: 'XAG/USD',  // Silver Spot
+                symbol: 'XAG/USD',  // Silver
                 elementPrice: 'silver-price',
                 elementChange: 'silver-change',
                 decimals: 4
             },
             gold: {
-                symbol: 'XAU/USD',  // Gold Spot
+                symbol: 'XAU/USD',  // Gold
                 elementPrice: 'gold-price',
                 elementChange: 'gold-change',
                 decimals: 4
@@ -519,25 +519,25 @@
                 symbol: '^GSPC',  // S&P 500
                 elementPrice: 'sp500-price',
                 elementChange: 'sp500-change',
-                decimals: 4
+                decimals: 2
             },
             nasdaq: {
-                symbol: '^NDX',  // Nasdaq 100
+                symbol: '^IXIC',  // Nasdaq Composite
                 elementPrice: 'nasdaq-price',
                 elementChange: 'nasdaq-change',
-                decimals: 4
+                decimals: 2
             },
             sp500Futures: {
                 symbol: 'ES',  // S&P 500 Futures
                 elementPrice: 'sp500-futures-price',
                 elementChange: 'sp500-futures-change',
-                decimals: 4
+                decimals: 2
             },
             nasdaqFutures: {
                 symbol: 'NQ',  // Nasdaq Futures
                 elementPrice: 'nasdaq-futures-price',
                 elementChange: 'nasdaq-futures-change',
-                decimals: 4
+                decimals: 2
             },
             niftyFutures: {
                 symbol: 'NIFTY',  // Nifty Futures
