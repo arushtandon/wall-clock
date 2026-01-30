@@ -71,7 +71,7 @@ ASSETS = {
 }
 
 def fetch_from_investing_api():
-    """Fetch live prices from investing.com using their internal API"""
+    """Fetch live prices from investing.com using their real-time API"""
     try:
         from curl_cffi import requests
     except ImportError:
@@ -79,13 +79,14 @@ def fetch_from_investing_api():
         return None
     
     results = []
-    pair_ids = [asset['pair_id'] for asset in ASSETS.values()]
     
-    # Try the quotes refresh endpoint
+    # Build comma-separated list of pair IDs
+    pair_ids = ','.join([asset['pair_id'] for asset in ASSETS.values()])
+    
+    # Use the live quotes API endpoint (same as used by investing.com's live price updates)
+    url = f"https://api.investing.com/api/financialdata/assets/quotesInfo?pairIds={pair_ids}"
+    
     try:
-        # This endpoint is used by investing.com for real-time updates
-        url = "https://api.investing.com/api/financialdata/assets/equitiesByCountry/6"
-        
         response = requests.get(
             url,
             impersonate="chrome",
@@ -95,67 +96,41 @@ def fetch_from_investing_api():
                 'Accept-Language': 'en-US,en;q=0.9',
                 'Origin': 'https://www.investing.com',
                 'Referer': 'https://www.investing.com/',
+                'Domain-Id': 'www',
             }
         )
         
         if response.status_code == 200:
-            print(f"API response received", flush=True)
-    except Exception as e:
-        print(f"API test failed: {e}", flush=True)
-    
-    # Fetch each asset individually using the streaming endpoint
-    for key, asset in ASSETS.items():
-        try:
-            # Use the chart API which returns current price
-            url = f"https://api.investing.com/api/financialdata/{asset['pair_id']}/historical/chart/"
-            params = "?period=P1D&interval=PT1M&pointscount=1"
+            data = response.json()
             
-            response = requests.get(
-                url + params,
-                impersonate="chrome",
-                timeout=10,
-                headers={
-                    'Accept': 'application/json',
-                    'Accept-Language': 'en-US,en;q=0.9',
-                    'Origin': 'https://www.investing.com',
-                    'Referer': 'https://www.investing.com/',
-                }
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                
-                if 'data' in data and len(data['data']) > 0:
-                    latest = data['data'][-1]
+            # Process the response
+            if 'data' in data:
+                for item in data['data']:
+                    pair_id = str(item.get('pairId', ''))
                     
-                    # Try different field names
-                    price = (latest.get('last_close') or 
-                            latest.get('close') or 
-                            latest.get('last') or
-                            latest.get('y') or 0)
-                    
-                    open_price = latest.get('open') or latest.get('last_open') or price
-                    
-                    if price and price > 0:
-                        change = price - open_price if open_price else 0
-                        change_pct = (change / open_price * 100) if open_price and open_price != 0 else 0
-                        
-                        results.append({
-                            'symbol': asset['symbol'],
-                            'regularMarketPrice': price,
-                            'regularMarketChange': change,
-                            'regularMarketChangePercent': change_pct,
-                        })
-                        print(f"  {asset['name']}: ${price:,.2f} ({change_pct:+.2f}%)", flush=True)
-                    else:
-                        print(f"  {asset['name']}: No price in response", flush=True)
-                else:
-                    print(f"  {asset['name']}: No data in response", flush=True)
+                    # Find matching asset
+                    for key, asset in ASSETS.items():
+                        if asset['pair_id'] == pair_id:
+                            price = item.get('last', 0)
+                            change = item.get('change', 0)
+                            change_pct = item.get('changePercent', 0)
+                            
+                            if price and price > 0:
+                                results.append({
+                                    'symbol': asset['symbol'],
+                                    'regularMarketPrice': price,
+                                    'regularMarketChange': change,
+                                    'regularMarketChangePercent': change_pct,
+                                })
+                                print(f"  {asset['name']}: ${price:,.4f} ({change_pct:+.2f}%)", flush=True)
+                            break
             else:
-                print(f"  {asset['name']}: HTTP {response.status_code}", flush=True)
+                print(f"API: No data in response", flush=True)
+        else:
+            print(f"API: HTTP {response.status_code}", flush=True)
                 
-        except Exception as e:
-            print(f"  {asset['name']}: Error - {e}", flush=True)
+    except Exception as e:
+        print(f"API Error: {e}", flush=True)
     
     if results:
         return {'quoteResponse': {'result': results}}
