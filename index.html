@@ -683,8 +683,8 @@
         console.log('Market Clock starting...');
         updatePrices();
         
-        // Update every 0.5 seconds for live prices
-        const updateInterval = setInterval(updatePrices, 500);
+        // Update every 0.1 seconds for live prices
+        const updateInterval = setInterval(updatePrices, 100);
         
         // Also update when page becomes visible again
         document.addEventListener('visibilitychange', () => {

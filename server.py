@@ -272,7 +272,7 @@ def background_price_updater():
             update_price_cache()
         except Exception as e:
             print(f"Update error: {e}", flush=True)
-        time.sleep(2)  # Update every 2 seconds
+        time.sleep(0.5)  # Update every 0.5 seconds
 
 def start_background_updater():
     """Start the background price updater if not already running"""
