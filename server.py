@@ -63,10 +63,10 @@ ASSETS = {
         'url': 'https://www.investing.com/indices/nq-100-futures'
     },
     'nifty_futures': {
-        'pair_id': '17940',
+        'pair_id': '101817',
         'symbol': 'NIFTY',
         'name': 'Nifty Futures',
-        'url': 'https://www.investing.com/indices/s-p-cnx-nifty-futures'
+        'url': 'https://www.investing.com/indices/india-50-futures'
     }
 }
 
