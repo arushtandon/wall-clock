@@ -77,99 +77,131 @@ def fetch_from_investing_api():
 
 def fetch_from_investing_scrape():
     """Scrape prices directly from investing.com pages"""
-    # Try curl_cffi first, fall back to requests
-    try:
-        from curl_cffi import requests as curl_requests
-        use_curl = True
-    except ImportError:
-        print("curl_cffi not available, using requests", flush=True)
-        import requests as std_requests
-        use_curl = False
+    import requests
     
     results = []
     
+    # Use ScraperAPI or similar proxy service (free tier available)
+    # For now, try multiple user agents and methods
+    user_agents = [
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    ]
+    
+    # Try with curl_cffi first (better at bypassing blocks)
+    try:
+        from curl_cffi import requests as curl_requests
+        use_curl = True
+        print("Using curl_cffi", flush=True)
+    except Exception as e:
+        print(f"curl_cffi not available: {e}", flush=True)
+        use_curl = False
+    
     for key, asset in ASSETS.items():
         url = asset['url']
-        try:
-            if use_curl:
-                response = curl_requests.get(
-                    url,
-                    impersonate="chrome110",
-                    timeout=20,
-                    headers={
-                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                        'Accept-Language': 'en-US,en;q=0.5',
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    }
-                )
-            else:
-                response = std_requests.get(
-                    url,
-                    timeout=20,
-                    headers={
-                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                        'Accept-Language': 'en-US,en;q=0.5',
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    }
-                )
-            
-            if response.status_code != 200:
-                print(f"  {asset['name']}: HTTP {response.status_code}", flush=True)
-                continue
-            
-            html = response.text
-            print(f"  {asset['name']}: Got {len(html)} bytes", flush=True)
-            
-            price = None
-            change = 0
-            change_pct = 0
-            
-            # Primary: Use data-test attribute (most reliable for current price)
-            price_match = re.search(r'data-test="instrument-price-last"[^>]*>([^<]+)', html)
-            if price_match:
-                price_str = price_match.group(1).replace(',', '').strip()
+        price = None
+        change = 0
+        change_pct = 0
+        
+        # Try curl_cffi with different browser impersonations
+        if use_curl:
+            for browser in ['chrome120', 'chrome119', 'chrome110', 'safari15_5']:
                 try:
-                    price = float(price_str)
-                    print(f"    Found price via data-test: {price}", flush=True)
-                except Exception as e:
-                    print(f"    Price parse error: {e}", flush=True)
-            
-            # Fallback: Use JSON "last" value
-            if not price:
-                match = re.search(r'"last":\s*([\d.]+)', html)
-                if match:
-                    price = float(match.group(1))
-                    print(f"    Found price via JSON: {price}", flush=True)
-            
-            # Get change and change percent from JSON
-            change_match = re.search(r'"change":\s*(-?[\d.]+)', html)
-            if change_match:
-                change = float(change_match.group(1))
-            
-            pct_match = re.search(r'"changePercent":\s*(-?[\d.]+)', html)
-            if not pct_match:
-                pct_match = re.search(r'"changePcr":\s*(-?[\d.]+)', html)
-            if pct_match:
-                change_pct = float(pct_match.group(1))
-            
-            if price and price > 0:
-                results.append({
-                    'symbol': asset['symbol'],
-                    'regularMarketPrice': price,
-                    'regularMarketChange': change,
-                    'regularMarketChangePercent': change_pct,
-                })
-                print(f"  {asset['name']}: ${price:,.4f} ({change_pct:+.2f}%) OK", flush=True)
-            else:
-                print(f"  {asset['name']}: No price found in HTML", flush=True)
-                # Check if we got Cloudflare block
-                if 'Just a moment' in html or 'cloudflare' in html.lower():
-                    print(f"    BLOCKED by Cloudflare!", flush=True)
+                    response = curl_requests.get(
+                        url,
+                        impersonate=browser,
+                        timeout=30,
+                    )
                     
-        except Exception as e:
-            print(f"  {asset['name']}: Scrape error - {type(e).__name__}: {e}", flush=True)
+                    if response.status_code == 200:
+                        html = response.text
+                        if 'Just a moment' not in html and len(html) > 10000:
+                            # Extract price
+                            price_match = re.search(r'data-test="instrument-price-last"[^>]*>([^<]+)', html)
+                            if price_match:
+                                price_str = price_match.group(1).replace(',', '').strip()
+                                price = float(price_str)
+                            
+                            if not price:
+                                match = re.search(r'"last":\s*([\d.]+)', html)
+                                if match:
+                                    price = float(match.group(1))
+                            
+                            # Get change
+                            change_match = re.search(r'"change":\s*(-?[\d.]+)', html)
+                            if change_match:
+                                change = float(change_match.group(1))
+                            
+                            pct_match = re.search(r'"changePercent":\s*(-?[\d.]+)', html)
+                            if not pct_match:
+                                pct_match = re.search(r'"changePcr":\s*(-?[\d.]+)', html)
+                            if pct_match:
+                                change_pct = float(pct_match.group(1))
+                            
+                            if price:
+                                print(f"  {asset['name']}: ${price:,.4f} (via {browser})", flush=True)
+                                break
+                except Exception as e:
+                    continue
+        
+        # Fallback to standard requests if curl_cffi failed
+        if not price:
+            for ua in user_agents:
+                try:
+                    response = requests.get(
+                        url,
+                        timeout=20,
+                        headers={
+                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                            'Accept-Language': 'en-US,en;q=0.9',
+                            'Accept-Encoding': 'gzip, deflate, br',
+                            'User-Agent': ua,
+                            'Cache-Control': 'no-cache',
+                            'Pragma': 'no-cache',
+                        }
+                    )
+                    
+                    if response.status_code == 200:
+                        html = response.text
+                        if 'Just a moment' not in html and len(html) > 10000:
+                            price_match = re.search(r'data-test="instrument-price-last"[^>]*>([^<]+)', html)
+                            if price_match:
+                                price_str = price_match.group(1).replace(',', '').strip()
+                                price = float(price_str)
+                            
+                            if not price:
+                                match = re.search(r'"last":\s*([\d.]+)', html)
+                                if match:
+                                    price = float(match.group(1))
+                            
+                            change_match = re.search(r'"change":\s*(-?[\d.]+)', html)
+                            if change_match:
+                                change = float(change_match.group(1))
+                            
+                            pct_match = re.search(r'"changePercent":\s*(-?[\d.]+)', html)
+                            if not pct_match:
+                                pct_match = re.search(r'"changePcr":\s*(-?[\d.]+)', html)
+                            if pct_match:
+                                change_pct = float(pct_match.group(1))
+                            
+                            if price:
+                                print(f"  {asset['name']}: ${price:,.4f} (via requests)", flush=True)
+                                break
+                except Exception as e:
+                    continue
+        
+        if price and price > 0:
+            results.append({
+                'symbol': asset['symbol'],
+                'regularMarketPrice': price,
+                'regularMarketChange': change,
+                'regularMarketChangePercent': change_pct,
+            })
+        else:
+            print(f"  {asset['name']}: FAILED to get price", flush=True)
     
-    print(f"Total results: {len(results)}", flush=True)
+    print(f"Total results: {len(results)}/{len(ASSETS)}", flush=True)
     
     if results:
         return {'quoteResponse': {'result': results}}
