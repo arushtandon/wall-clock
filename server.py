@@ -175,10 +175,22 @@ def run_ibkr_connection():
             contracts['nasdaq_futures'] = Future('NQ', front_month, 'CME')
             
             # GIFT Nifty - NIFTY 50 Index Futures via GIFT CONNECT
-            # Trades on NSE IFSC, cleared through SGX
-            nifty_contract = Future('NIFTY', front_month, 'SGX')
-            nifty_contract.currency = 'USD'
-            contracts['nifty_futures'] = nifty_contract
+            # Use continuous contract format for simpler access
+            try:
+                nifty_contract = Future(symbol='NIFTY', lastTradeDateOrContractMonth='', exchange='SGX')
+                nifty_contract.currency = 'USD'
+                # Try to qualify to find the front month automatically
+                qualified_nifty = ib.qualifyContracts(nifty_contract)
+                if qualified_nifty:
+                    contracts['nifty_futures'] = qualified_nifty[0]
+                    print(f"Nifty contract qualified: {qualified_nifty[0]}", flush=True)
+                else:
+                    # Fallback: try with explicit month
+                    nifty_contract = Future('NIFTY', front_month, 'SGX')
+                    nifty_contract.currency = 'USD'
+                    contracts['nifty_futures'] = nifty_contract
+            except Exception as e:
+                print(f"Nifty contract error: {e}", flush=True)
             
             # Qualify and subscribe (use delayed data if real-time not available)
             tickers = {}
