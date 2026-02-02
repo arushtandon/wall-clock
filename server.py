@@ -77,31 +77,49 @@ def fetch_from_investing_api():
 
 def fetch_from_investing_scrape():
     """Scrape prices directly from investing.com pages"""
+    # Try curl_cffi first, fall back to requests
     try:
-        from curl_cffi import requests
+        from curl_cffi import requests as curl_requests
+        use_curl = True
     except ImportError:
-        return None
+        print("curl_cffi not available, using requests", flush=True)
+        import requests as std_requests
+        use_curl = False
     
     results = []
     
     for key, asset in ASSETS.items():
         url = asset['url']
         try:
-            response = requests.get(
-                url,
-                impersonate="chrome110",
-                timeout=15,
-                headers={
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                    'Accept-Language': 'en-US,en;q=0.5',
-                }
-            )
+            if use_curl:
+                response = curl_requests.get(
+                    url,
+                    impersonate="chrome110",
+                    timeout=20,
+                    headers={
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                        'Accept-Language': 'en-US,en;q=0.5',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    }
+                )
+            else:
+                response = std_requests.get(
+                    url,
+                    timeout=20,
+                    headers={
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                        'Accept-Language': 'en-US,en;q=0.5',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    }
+                )
             
             if response.status_code != 200:
                 print(f"  {asset['name']}: HTTP {response.status_code}", flush=True)
                 continue
             
             html = response.text
+            print(f"  {asset['name']}: Got {len(html)} bytes", flush=True)
+            
             price = None
             change = 0
             change_pct = 0
@@ -109,17 +127,19 @@ def fetch_from_investing_scrape():
             # Primary: Use data-test attribute (most reliable for current price)
             price_match = re.search(r'data-test="instrument-price-last"[^>]*>([^<]+)', html)
             if price_match:
-                price_str = price_match.group(1).replace(',', '')
+                price_str = price_match.group(1).replace(',', '').strip()
                 try:
                     price = float(price_str)
-                except:
-                    pass
+                    print(f"    Found price via data-test: {price}", flush=True)
+                except Exception as e:
+                    print(f"    Price parse error: {e}", flush=True)
             
             # Fallback: Use JSON "last" value
             if not price:
                 match = re.search(r'"last":\s*([\d.]+)', html)
                 if match:
                     price = float(match.group(1))
+                    print(f"    Found price via JSON: {price}", flush=True)
             
             # Get change and change percent from JSON
             change_match = re.search(r'"change":\s*(-?[\d.]+)', html)
@@ -139,12 +159,17 @@ def fetch_from_investing_scrape():
                     'regularMarketChange': change,
                     'regularMarketChangePercent': change_pct,
                 })
-                print(f"  {asset['name']}: ${price:,.4f} ({change_pct:+.2f}%)", flush=True)
+                print(f"  {asset['name']}: ${price:,.4f} ({change_pct:+.2f}%) OK", flush=True)
             else:
-                print(f"  {asset['name']}: No price found", flush=True)
+                print(f"  {asset['name']}: No price found in HTML", flush=True)
+                # Check if we got Cloudflare block
+                if 'Just a moment' in html or 'cloudflare' in html.lower():
+                    print(f"    BLOCKED by Cloudflare!", flush=True)
                     
         except Exception as e:
-            print(f"  {asset['name']}: Scrape error - {e}", flush=True)
+            print(f"  {asset['name']}: Scrape error - {type(e).__name__}: {e}", flush=True)
+    
+    print(f"Total results: {len(results)}", flush=True)
     
     if results:
         return {'quoteResponse': {'result': results}}
