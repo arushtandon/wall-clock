@@ -132,111 +132,117 @@ def run_ibkr_connection():
     global live_prices, ib_connected
     
     import asyncio
-    from ib_insync import IB, Contract, Index, Future, Forex, util
+    import socket
     
     # Create new event loop for this thread
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     
-    ib = IB()
-    
     while True:
+        ib = None
         try:
-            print(f"Connecting to IB Gateway at {IB_HOST}:{IB_PORT}...", flush=True)
-            ib.connect(IB_HOST, IB_PORT, clientId=IB_CLIENT_ID)
+            # First check if IB Gateway is reachable
+            print(f"Checking IB Gateway at {IB_HOST}:{IB_PORT}...", flush=True)
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(5)
+            result = sock.connect_ex((IB_HOST, IB_PORT))
+            sock.close()
+            
+            if result != 0:
+                print(f"IB Gateway not reachable on port {IB_PORT}. Is it running?", flush=True)
+                print("Start IB Gateway with: systemctl start ibgateway", flush=True)
+                time.sleep(10)
+                continue
+            
+            print("IB Gateway is reachable, connecting...", flush=True)
+            
+            from ib_insync import IB, Index, Future, Forex
+            
+            ib = IB()
+            ib.connect(IB_HOST, IB_PORT, clientId=IB_CLIENT_ID, timeout=15)
             ib_connected = True
             print("Connected to Interactive Brokers!", flush=True)
             
             # Get front month for futures
             front_month = get_front_month()
+            print(f"Using front month: {front_month}", flush=True)
             
-            # Create contracts and request market data
+            # Create contracts
             contracts = {}
             
-            # Silver (Forex/CMDTY)
+            # Silver & Gold as Forex pairs
             contracts['silver'] = Forex('XAGUSD')
-            
-            # Gold (Forex/CMDTY)  
             contracts['gold'] = Forex('XAUUSD')
             
-            # S&P 500 Index
+            # Indices
             contracts['sp500'] = Index('SPX', 'CBOE', 'USD')
-            
-            # Nasdaq 100 Index
             contracts['nasdaq'] = Index('NDX', 'NASDAQ', 'USD')
             
-            # E-mini S&P 500 Futures
+            # Futures
             contracts['sp500_futures'] = Future('ES', front_month, 'CME')
-            
-            # E-mini Nasdaq Futures
             contracts['nasdaq_futures'] = Future('NQ', front_month, 'CME')
-            
-            # Nifty Futures (SGX)
             contracts['nifty_futures'] = Future('NIFTY50', front_month, 'SGX')
             
-            # Qualify contracts
-            for key, contract in contracts.items():
-                try:
-                    ib.qualifyContracts(contract)
-                    print(f"Qualified: {key} -> {contract}", flush=True)
-                except Exception as e:
-                    print(f"Failed to qualify {key}: {e}", flush=True)
-            
-            # Request streaming market data
+            # Qualify and subscribe
             tickers = {}
             for key, contract in contracts.items():
                 try:
-                    ticker = ib.reqMktData(contract, '', False, False)
-                    tickers[key] = ticker
-                    print(f"Subscribed to {key}", flush=True)
+                    qualified = ib.qualifyContracts(contract)
+                    if qualified:
+                        ticker = ib.reqMktData(contract, '', False, False)
+                        tickers[key] = ticker
+                        print(f"Subscribed: {key}", flush=True)
+                    else:
+                        print(f"Could not qualify: {key}", flush=True)
                 except Exception as e:
-                    print(f"Failed to subscribe {key}: {e}", flush=True)
+                    print(f"Error with {key}: {e}", flush=True)
+            
+            print(f"Streaming {len(tickers)} symbols...", flush=True)
             
             # Process updates
             while ib.isConnected():
-                ib.sleep(0.1)  # Process events every 100ms
+                ib.sleep(0.1)
                 
                 for key, ticker in tickers.items():
+                    price = None
                     if ticker.last and ticker.last > 0:
                         price = ticker.last
                     elif ticker.close and ticker.close > 0:
                         price = ticker.close
-                    elif ticker.bid and ticker.bid > 0:
-                        price = (ticker.bid + ticker.ask) / 2 if ticker.ask else ticker.bid
-                    else:
-                        continue
+                    elif ticker.bid and ticker.bid > 0 and ticker.ask and ticker.ask > 0:
+                        price = (ticker.bid + ticker.ask) / 2
                     
-                    # Calculate change from previous close
-                    prev_close = ticker.close if ticker.close else price
-                    change = price - prev_close
-                    change_pct = (change / prev_close * 100) if prev_close else 0
-                    
-                    # Check if price changed
-                    old_price = live_prices.get(key, {}).get('price', 0)
-                    if price != old_price:
-                        live_prices[key] = {
-                            'price': price,
-                            'change': change,
-                            'change_pct': change_pct,
-                        }
-                        update_price_cache_from_live()
-                        print(f"  {ASSETS[key]['name']}: {price:.4f} ({change_pct:+.2f}%)", flush=True)
+                    if price and price > 0:
+                        prev_close = ticker.close if ticker.close and ticker.close > 0 else price
+                        change = price - prev_close
+                        change_pct = (change / prev_close * 100) if prev_close else 0
+                        
+                        old_price = live_prices.get(key, {}).get('price', 0)
+                        if abs(price - old_price) > 0.0001:
+                            live_prices[key] = {
+                                'price': price,
+                                'change': change,
+                                'change_pct': change_pct,
+                            }
+                            update_price_cache_from_live()
+                            print(f"  {ASSETS[key]['name']}: {price:.4f}", flush=True)
             
             print("IB connection lost", flush=True)
             ib_connected = False
             
         except Exception as e:
-            print(f"IBKR error: {e}", flush=True)
+            print(f"IBKR error: {type(e).__name__}: {e}", flush=True)
             ib_connected = False
         
-        print("Reconnecting to IB Gateway in 5 seconds...", flush=True)
-        time.sleep(5)
-        
-        try:
-            if ib.isConnected():
+        # Cleanup
+        if ib:
+            try:
                 ib.disconnect()
-        except:
-            pass
+            except:
+                pass
+        
+        print("Retrying in 10 seconds...", flush=True)
+        time.sleep(10)
 
 def start_background_updater():
     """Start the IBKR connection"""
