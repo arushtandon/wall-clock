@@ -70,64 +70,34 @@ ASSETS = {
     }
 }
 
-def fetch_from_yahoo():
-    """Fetch prices from Yahoo Finance as backup"""
+def fetch_via_proxy(url):
+    """Fetch URL via free proxy services to bypass Cloudflare"""
     import requests
+    import urllib.parse
     
-    # Yahoo Finance symbols mapping
-    yahoo_symbols = {
-        'XAG/USD': 'SI=F',      # Silver Futures
-        'XAU/USD': 'GC=F',      # Gold Futures
-        '^GSPC': '^GSPC',       # S&P 500
-        '^IXIC': '^IXIC',       # Nasdaq Composite
-        'ES': 'ES=F',           # S&P 500 Futures
-        'NQ': 'NQ=F',           # Nasdaq Futures
-        'NIFTY': '^NSEI',       # Nifty 50
-    }
+    # List of free proxy/scraping services to try
+    proxy_services = [
+        # AllOrigins
+        lambda u: f"https://api.allorigins.win/raw?url={urllib.parse.quote(u)}",
+        # corsproxy.io
+        lambda u: f"https://corsproxy.io/?{urllib.parse.quote(u)}",
+    ]
     
-    results = []
-    
-    for asset_key, asset in ASSETS.items():
-        symbol = asset['symbol']
-        yahoo_sym = yahoo_symbols.get(symbol, symbol)
-        
+    for get_proxy_url in proxy_services:
         try:
-            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{yahoo_sym}?interval=1m&range=1d"
-            
+            proxy_url = get_proxy_url(url)
             response = requests.get(
-                url,
-                timeout=10,
+                proxy_url,
+                timeout=30,
                 headers={
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                 }
             )
-            
-            if response.status_code == 200:
-                data = response.json()
-                result = data.get('chart', {}).get('result', [])
-                
-                if result:
-                    meta = result[0].get('meta', {})
-                    price = meta.get('regularMarketPrice', 0)
-                    prev_close = meta.get('previousClose', price)
-                    
-                    if price and price > 0:
-                        change = price - prev_close if prev_close else 0
-                        change_pct = (change / prev_close * 100) if prev_close else 0
-                        
-                        results.append({
-                            'symbol': symbol,
-                            'regularMarketPrice': price,
-                            'regularMarketChange': change,
-                            'regularMarketChangePercent': change_pct,
-                        })
-                        print(f"  {asset['name']}: ${price:,.4f} (Yahoo)", flush=True)
-                        
+            if response.status_code == 200 and len(response.text) > 5000:
+                if 'Just a moment' not in response.text:
+                    return response.text
         except Exception as e:
-            print(f"  {asset['name']}: Yahoo error - {e}", flush=True)
-    
-    if results:
-        return {'quoteResponse': {'result': results}}
+            continue
     
     return None
 
@@ -247,6 +217,37 @@ def fetch_from_investing_scrape():
                 except Exception as e:
                     continue
         
+        # If still no price, try via proxy
+        if not price:
+            print(f"  {asset['name']}: Trying via proxy...", flush=True)
+            try:
+                html = fetch_via_proxy(url)
+                if html:
+                    price_match = re.search(r'data-test="instrument-price-last"[^>]*>([^<]+)', html)
+                    if price_match:
+                        price_str = price_match.group(1).replace(',', '').strip()
+                        price = float(price_str)
+                    
+                    if not price:
+                        match = re.search(r'"last":\s*([\d.]+)', html)
+                        if match:
+                            price = float(match.group(1))
+                    
+                    if price:
+                        change_match = re.search(r'"change":\s*(-?[\d.]+)', html)
+                        if change_match:
+                            change = float(change_match.group(1))
+                        
+                        pct_match = re.search(r'"changePercent":\s*(-?[\d.]+)', html)
+                        if not pct_match:
+                            pct_match = re.search(r'"changePcr":\s*(-?[\d.]+)', html)
+                        if pct_match:
+                            change_pct = float(pct_match.group(1))
+                        
+                        print(f"  {asset['name']}: ${price:,.4f} (via proxy)", flush=True)
+            except Exception as e:
+                print(f"  {asset['name']}: Proxy error - {e}", flush=True)
+        
         if price and price > 0:
             results.append({
                 'symbol': asset['symbol'],
@@ -265,32 +266,25 @@ def fetch_from_investing_scrape():
     return None
 
 def update_price_cache():
-    """Update the price cache from multiple sources"""
+    """Update the price cache from investing.com only"""
     global price_cache
     
     from datetime import datetime
     timestamp = datetime.now().strftime("%H:%M:%S")
     
-    # Try investing.com scraping first
-    print(f"[{timestamp}] Trying investing.com...", flush=True)
+    # Fetch from investing.com (with proxy fallback)
+    print(f"[{timestamp}] Fetching from investing.com...", flush=True)
     data = fetch_from_investing_scrape()
-    
-    # If investing.com fails, try Yahoo Finance
-    if not data or len(data.get('quoteResponse', {}).get('result', [])) < 4:
-        print(f"[{timestamp}] Investing.com failed, trying Yahoo Finance...", flush=True)
-        yahoo_data = fetch_from_yahoo()
-        if yahoo_data:
-            data = yahoo_data
     
     if data and data.get('quoteResponse', {}).get('result'):
         num_prices = len(data['quoteResponse']['result'])
         with price_cache['lock']:
             price_cache['data'] = data
             price_cache['last_update'] = time.time()
-        print(f"[{timestamp}] Updated {num_prices} prices", flush=True)
+        print(f"[{timestamp}] Updated {num_prices} prices from investing.com", flush=True)
         return True
     else:
-        print(f"[{timestamp}] All sources failed, keeping last data", flush=True)
+        print(f"[{timestamp}] Failed to fetch from investing.com, keeping last data", flush=True)
         return False
 
 def background_price_updater():
