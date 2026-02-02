@@ -24,10 +24,10 @@ price_cache = {
     'lock': threading.Lock()
 }
 
-# TradingView configuration
+# TradingView configuration - verified working symbols
 ASSETS = {
     'silver': {
-        'tv_symbol': 'OANDA:XAGUSD',
+        'tv_symbol': 'TVC:SILVER',
         'symbol': 'XAG/USD',
         'name': 'Silver',
     },
@@ -37,7 +37,7 @@ ASSETS = {
         'name': 'Gold',
     },
     'sp500': {
-        'tv_symbol': 'FOREXCOM:SPXUSD',
+        'tv_symbol': 'SP:SPX',
         'symbol': '^GSPC',
         'name': 'S&P 500',
     },
@@ -65,107 +65,61 @@ ASSETS = {
 
 
 def fetch_from_tradingview():
-    """Fetch prices from TradingView scanner API"""
+    """Fetch prices from TradingView scanner API - 24/7 reliable"""
     import requests
     
     results = []
     
-    # TradingView scanner API endpoint
-    url = "https://scanner.tradingview.com/symbol"
+    # Use batch endpoint (most reliable)
+    symbols = [asset['tv_symbol'] for asset in ASSETS.values()]
+    url = "https://scanner.tradingview.com/global/scan"
     
-    for key, asset in ASSETS.items():
-        tv_symbol = asset['tv_symbol']
-        
-        try:
-            # Use TradingView's quote endpoint
-            quote_url = f"https://scanner.tradingview.com/symbol?symbol={tv_symbol}&fields=close,change,change_abs&no_404=true"
-            
-            response = requests.get(
-                quote_url,
-                timeout=10,
-                headers={
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                    'Accept': 'application/json',
-                    'Origin': 'https://www.tradingview.com',
-                    'Referer': 'https://www.tradingview.com/',
-                }
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                
-                price = data.get('close', 0)
-                change_pct = data.get('change', 0)
-                change = data.get('change_abs', 0)
-                
-                if price and price > 0:
-                    results.append({
-                        'symbol': asset['symbol'],
-                        'regularMarketPrice': price,
-                        'regularMarketChange': change,
-                        'regularMarketChangePercent': change_pct,
-                    })
-                    print(f"  {asset['name']}: ${price:,.4f} ({change_pct:+.2f}%)", flush=True)
-                else:
-                    print(f"  {asset['name']}: No price in response", flush=True)
-            else:
-                print(f"  {asset['name']}: HTTP {response.status_code}", flush=True)
-                
-        except Exception as e:
-            print(f"  {asset['name']}: Error - {str(e)[:50]}", flush=True)
+    payload = {
+        "symbols": {"tickers": symbols},
+        "columns": ["close", "change", "change_abs"]
+    }
     
-    # If scanner API fails, try the batch endpoint
-    if len(results) < len(ASSETS):
-        print("Trying batch endpoint...", flush=True)
-        try:
-            symbols = [asset['tv_symbol'] for asset in ASSETS.values()]
-            batch_url = "https://scanner.tradingview.com/global/scan"
-            
-            payload = {
-                "symbols": {"tickers": symbols},
-                "columns": ["close", "change", "change_abs", "name"]
+    try:
+        response = requests.post(
+            url,
+            json=payload,
+            timeout=15,
+            headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Content-Type': 'application/json',
             }
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
             
-            response = requests.post(
-                batch_url,
-                json=payload,
-                timeout=15,
-                headers={
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                    'Content-Type': 'application/json',
-                    'Origin': 'https://www.tradingview.com',
-                    'Referer': 'https://www.tradingview.com/',
-                }
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                existing_symbols = {r['symbol'] for r in results}
+            for item in data.get('data', []):
+                tv_symbol = item.get('s', '')
+                values = item.get('d', [])
                 
-                for item in data.get('data', []):
-                    symbol_name = item.get('s', '')
-                    values = item.get('d', [])
+                if len(values) >= 3 and values[0]:
+                    price = values[0]
+                    change_pct = values[1] if values[1] else 0
+                    change = values[2] if values[2] else 0
                     
-                    if len(values) >= 3:
-                        price = values[0]
-                        change_pct = values[1]
-                        change = values[2]
-                        
-                        # Find matching asset
-                        for key, asset in ASSETS.items():
-                            if asset['tv_symbol'] == symbol_name and asset['symbol'] not in existing_symbols:
-                                if price and price > 0:
-                                    results.append({
-                                        'symbol': asset['symbol'],
-                                        'regularMarketPrice': price,
-                                        'regularMarketChange': change,
-                                        'regularMarketChangePercent': change_pct,
-                                    })
-                                    print(f"  {asset['name']}: ${price:,.4f} (batch)", flush=True)
-                                break
-                                
-        except Exception as e:
-            print(f"Batch error: {str(e)[:50]}", flush=True)
+                    # Find matching asset
+                    for key, asset in ASSETS.items():
+                        if asset['tv_symbol'] == tv_symbol:
+                            results.append({
+                                'symbol': asset['symbol'],
+                                'regularMarketPrice': price,
+                                'regularMarketChange': change,
+                                'regularMarketChangePercent': change_pct,
+                            })
+                            print(f"  {asset['name']}: ${price:,.4f} ({change_pct:+.2f}%)", flush=True)
+                            break
+        else:
+            print(f"TradingView HTTP {response.status_code}", flush=True)
+            
+    except requests.exceptions.Timeout:
+        print("TradingView timeout", flush=True)
+    except Exception as e:
+        print(f"TradingView error: {str(e)[:100]}", flush=True)
     
     print(f"Total: {len(results)}/{len(ASSETS)}", flush=True)
     
@@ -198,30 +152,29 @@ def update_price_cache():
 def background_price_updater():
     """Background thread that continuously updates prices 24/7"""
     consecutive_failures = 0
-    max_failures = 5
     
     while True:
         try:
             success = update_price_cache()
             if success:
                 consecutive_failures = 0
-                time.sleep(10)  # Update every 10 seconds when working
+                time.sleep(5)  # Update every 5 seconds when working
             else:
                 consecutive_failures += 1
-                wait_time = min(30 * consecutive_failures, 300)  # Max 5 min wait
+                wait_time = min(10 * consecutive_failures, 60)  # Max 1 min wait
                 print(f"  Retry in {wait_time}s (failure #{consecutive_failures})", flush=True)
                 time.sleep(wait_time)
                 
         except Exception as e:
             consecutive_failures += 1
             print(f"Update error: {e}", flush=True)
-            time.sleep(60)  # Wait 1 minute on error
+            time.sleep(30)  # Wait 30 seconds on error
             
-        # Reset after max failures and wait longer
-        if consecutive_failures >= max_failures:
-            print("Too many failures, waiting 5 minutes...", flush=True)
+        # Reset after 10 failures
+        if consecutive_failures >= 10:
+            print("Resetting failure count, continuing...", flush=True)
             consecutive_failures = 0
-            time.sleep(300)  # Wait 5 minutes
+            time.sleep(60)  # Wait 1 minute before retry
 
 def start_background_updater():
     """Start the background price updater if not already running"""
