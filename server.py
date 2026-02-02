@@ -10,6 +10,8 @@ import os
 import threading
 import time
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 PORT = int(os.environ.get('PORT', 8080))
 app = Flask(__name__, static_folder=os.path.dirname(os.path.abspath(__file__)))
@@ -23,6 +25,9 @@ price_cache = {
     'last_update': 0,
     'lock': threading.Lock()
 }
+
+# Persistent session for better connection handling
+http_session = None
 
 # TradingView configuration - verified working symbols
 ASSETS = {
@@ -63,6 +68,31 @@ ASSETS = {
     }
 }
 
+def get_session():
+    """Get or create a persistent HTTP session with retry logic"""
+    global http_session
+    if http_session is None:
+        http_session = requests.Session()
+        
+        # Configure retry strategy
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=0.5,
+            status_forcelist=[429, 500, 502, 503, 504],
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy, pool_connections=10, pool_maxsize=10)
+        http_session.mount("https://", adapter)
+        http_session.mount("http://", adapter)
+        
+        # Set default headers
+        http_session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Accept-Language': 'en-US,en;q=0.9',
+        })
+    return http_session
+
 
 def fetch_from_tradingview():
     """Fetch prices from TradingView scanner API"""
@@ -75,15 +105,8 @@ def fetch_from_tradingview():
     }
     
     try:
-        response = requests.post(
-            url,
-            json=payload,
-            timeout=5,
-            headers={
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Content-Type': 'application/json',
-            }
-        )
+        session = get_session()
+        response = session.post(url, json=payload, timeout=10)
         
         if response.status_code == 200:
             data = response.json()
@@ -106,9 +129,18 @@ def fetch_from_tradingview():
             
             if results:
                 return {'quoteResponse': {'result': results}}
+        else:
+            print(f"TradingView HTTP {response.status_code}", flush=True)
                             
+    except requests.exceptions.Timeout:
+        print("TradingView timeout - retrying...", flush=True)
+    except requests.exceptions.ConnectionError:
+        print("TradingView connection error - retrying...", flush=True)
+        # Reset session on connection error
+        global http_session
+        http_session = None
     except Exception as e:
-        print(f"TradingView error: {e}", flush=True)
+        print(f"TradingView error: {type(e).__name__}: {e}", flush=True)
     
     return None
 
@@ -127,25 +159,22 @@ def update_price_cache():
 
 def background_price_updater():
     """Background thread that continuously updates prices 24/7"""
-    consecutive_failures = 0
+    update_interval = 2  # seconds between updates
     
     while True:
         try:
+            start_time = time.time()
             success = update_price_cache()
-            if success:
-                consecutive_failures = 0
-                time.sleep(1)  # Update every 1 second
-            else:
-                consecutive_failures += 1
-                time.sleep(min(5 * consecutive_failures, 30))
+            elapsed = time.time() - start_time
+            
+            # Always wait the same interval regardless of success/failure
+            # This prevents the exponential backoff issue
+            wait_time = max(0.1, update_interval - elapsed)
+            time.sleep(wait_time)
                 
         except Exception as e:
-            consecutive_failures += 1
-            time.sleep(10)
-            
-        if consecutive_failures >= 10:
-            consecutive_failures = 0
-            time.sleep(30)
+            print(f"Updater error: {e}", flush=True)
+            time.sleep(update_interval)
 
 def start_background_updater():
     """Start the background price updater"""
@@ -159,7 +188,7 @@ def start_background_updater():
         print("Starting background price updater...", flush=True)
         updater = threading.Thread(target=background_price_updater, daemon=True)
         updater.start()
-        print("Background updater started - updates every 1 second", flush=True)
+        print("Background updater started - updates every 2 seconds", flush=True)
 
 # Start updater when app is imported (for gunicorn)
 start_background_updater()
