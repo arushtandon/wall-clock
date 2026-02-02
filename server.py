@@ -24,125 +24,148 @@ price_cache = {
     'lock': threading.Lock()
 }
 
-# Investing.com configuration - Using exact URLs for live prices
+# TradingView configuration
 ASSETS = {
     'silver': {
-        'pair_id': '8836',
+        'tv_symbol': 'OANDA:XAGUSD',
         'symbol': 'XAG/USD',
         'name': 'Silver',
-        'url': 'https://www.investing.com/commodities/silver'
     },
     'gold': {
-        'pair_id': '8830',
+        'tv_symbol': 'OANDA:XAUUSD',
         'symbol': 'XAU/USD', 
         'name': 'Gold',
-        'url': 'https://www.investing.com/commodities/gold'
     },
     'sp500': {
-        'pair_id': '166',
+        'tv_symbol': 'FOREXCOM:SPXUSD',
         'symbol': '^GSPC',
         'name': 'S&P 500',
-        'url': 'https://www.investing.com/indices/us-spx-500'
     },
     'nasdaq': {
-        'pair_id': '14958',
+        'tv_symbol': 'NASDAQ:NDX',
         'symbol': '^IXIC',
         'name': 'Nasdaq',
-        'url': 'https://www.investing.com/indices/nasdaq-composite'
     },
     'sp500_futures': {
-        'pair_id': '1175153',
+        'tv_symbol': 'CME_MINI:ES1!',
         'symbol': 'ES',
         'name': 'S&P 500 Futures',
-        'url': 'https://www.investing.com/indices/us-spx-500-futures'
     },
     'nasdaq_futures': {
-        'pair_id': '1175151',
+        'tv_symbol': 'CME_MINI:NQ1!',
         'symbol': 'NQ',
         'name': 'Nasdaq Futures',
-        'url': 'https://www.investing.com/indices/nq-100-futures'
     },
     'nifty_futures': {
-        'pair_id': '101817',
+        'tv_symbol': 'NSE:NIFTY1!',
         'symbol': 'NIFTY',
         'name': 'Nifty Futures',
-        'url': 'https://www.investing.com/indices/india-50-futures'
     }
 }
 
 
-def fetch_from_investing_scrape():
-    """Scrape prices from investing.com - simplified with strict timeouts"""
+def fetch_from_tradingview():
+    """Fetch prices from TradingView scanner API"""
     import requests
     
     results = []
     
+    # TradingView scanner API endpoint
+    url = "https://scanner.tradingview.com/symbol"
+    
     for key, asset in ASSETS.items():
-        url = asset['url']
-        price = None
-        change = 0
-        change_pct = 0
+        tv_symbol = asset['tv_symbol']
         
-        # Quick attempt with requests only (10 second timeout)
         try:
+            # Use TradingView's quote endpoint
+            quote_url = f"https://scanner.tradingview.com/symbol?symbol={tv_symbol}&fields=close,change,change_abs&no_404=true"
+            
             response = requests.get(
-                url,
+                quote_url,
                 timeout=10,
                 headers={
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'text/html,application/xhtml+xml',
-                    'Accept-Language': 'en-US,en;q=0.9',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Accept': 'application/json',
+                    'Origin': 'https://www.tradingview.com',
+                    'Referer': 'https://www.tradingview.com/',
                 }
             )
             
             if response.status_code == 200:
-                html = response.text
+                data = response.json()
                 
-                if 'Just a moment' in html or len(html) < 5000:
-                    print(f"  {asset['name']}: Blocked by Cloudflare", flush=True)
-                    continue
+                price = data.get('close', 0)
+                change_pct = data.get('change', 0)
+                change = data.get('change_abs', 0)
                 
-                # Extract price
-                price_match = re.search(r'data-test="instrument-price-last"[^>]*>([^<]+)', html)
-                if price_match:
-                    price_str = price_match.group(1).replace(',', '').strip()
-                    try:
-                        price = float(price_str)
-                    except:
-                        pass
-                
-                if not price:
-                    match = re.search(r'"last":\s*([\d.]+)', html)
-                    if match:
-                        price = float(match.group(1))
-                
-                if price:
-                    change_match = re.search(r'"change":\s*(-?[\d.]+)', html)
-                    if change_match:
-                        change = float(change_match.group(1))
-                    
-                    pct_match = re.search(r'"changePercent":\s*(-?[\d.]+)', html)
-                    if not pct_match:
-                        pct_match = re.search(r'"changePcr":\s*(-?[\d.]+)', html)
-                    if pct_match:
-                        change_pct = float(pct_match.group(1))
-                    
+                if price and price > 0:
                     results.append({
                         'symbol': asset['symbol'],
                         'regularMarketPrice': price,
                         'regularMarketChange': change,
                         'regularMarketChangePercent': change_pct,
                     })
-                    print(f"  {asset['name']}: ${price:,.4f}", flush=True)
+                    print(f"  {asset['name']}: ${price:,.4f} ({change_pct:+.2f}%)", flush=True)
                 else:
-                    print(f"  {asset['name']}: No price found", flush=True)
+                    print(f"  {asset['name']}: No price in response", flush=True)
             else:
                 print(f"  {asset['name']}: HTTP {response.status_code}", flush=True)
                 
-        except requests.exceptions.Timeout:
-            print(f"  {asset['name']}: Timeout", flush=True)
         except Exception as e:
             print(f"  {asset['name']}: Error - {str(e)[:50]}", flush=True)
+    
+    # If scanner API fails, try the batch endpoint
+    if len(results) < len(ASSETS):
+        print("Trying batch endpoint...", flush=True)
+        try:
+            symbols = [asset['tv_symbol'] for asset in ASSETS.values()]
+            batch_url = "https://scanner.tradingview.com/global/scan"
+            
+            payload = {
+                "symbols": {"tickers": symbols},
+                "columns": ["close", "change", "change_abs", "name"]
+            }
+            
+            response = requests.post(
+                batch_url,
+                json=payload,
+                timeout=15,
+                headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Content-Type': 'application/json',
+                    'Origin': 'https://www.tradingview.com',
+                    'Referer': 'https://www.tradingview.com/',
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                existing_symbols = {r['symbol'] for r in results}
+                
+                for item in data.get('data', []):
+                    symbol_name = item.get('s', '')
+                    values = item.get('d', [])
+                    
+                    if len(values) >= 3:
+                        price = values[0]
+                        change_pct = values[1]
+                        change = values[2]
+                        
+                        # Find matching asset
+                        for key, asset in ASSETS.items():
+                            if asset['tv_symbol'] == symbol_name and asset['symbol'] not in existing_symbols:
+                                if price and price > 0:
+                                    results.append({
+                                        'symbol': asset['symbol'],
+                                        'regularMarketPrice': price,
+                                        'regularMarketChange': change,
+                                        'regularMarketChangePercent': change_pct,
+                                    })
+                                    print(f"  {asset['name']}: ${price:,.4f} (batch)", flush=True)
+                                break
+                                
+        except Exception as e:
+            print(f"Batch error: {str(e)[:50]}", flush=True)
     
     print(f"Total: {len(results)}/{len(ASSETS)}", flush=True)
     
@@ -151,25 +174,25 @@ def fetch_from_investing_scrape():
     return None
 
 def update_price_cache():
-    """Update the price cache from investing.com only"""
+    """Update the price cache from TradingView"""
     global price_cache
     
     from datetime import datetime
     timestamp = datetime.now().strftime("%H:%M:%S")
     
-    # Fetch from investing.com (with proxy fallback)
-    print(f"[{timestamp}] Fetching from investing.com...", flush=True)
-    data = fetch_from_investing_scrape()
+    # Fetch from TradingView
+    print(f"[{timestamp}] Fetching from TradingView...", flush=True)
+    data = fetch_from_tradingview()
     
     if data and data.get('quoteResponse', {}).get('result'):
         num_prices = len(data['quoteResponse']['result'])
         with price_cache['lock']:
             price_cache['data'] = data
             price_cache['last_update'] = time.time()
-        print(f"[{timestamp}] Updated {num_prices} prices from investing.com", flush=True)
+        print(f"[{timestamp}] Updated {num_prices} prices from TradingView", flush=True)
         return True
     else:
-        print(f"[{timestamp}] Failed to fetch from investing.com, keeping last data", flush=True)
+        print(f"[{timestamp}] Failed to fetch from TradingView, keeping last data", flush=True)
         return False
 
 def background_price_updater():
