@@ -72,12 +72,8 @@ ASSETS = {
 
 
 def fetch_from_investing_scrape():
-    """Scrape prices from investing.com using ScraperAPI for Cloudflare bypass"""
+    """Scrape prices from investing.com - simplified with strict timeouts"""
     import requests
-    
-    # ScraperAPI free tier - 5000 credits/month
-    # Sign up at https://www.scraperapi.com/ for your own API key
-    SCRAPER_API_KEY = "free"  # Using demo mode
     
     results = []
     
@@ -87,104 +83,71 @@ def fetch_from_investing_scrape():
         change = 0
         change_pct = 0
         
-        # Try multiple methods
-        methods = [
-            # Method 1: Direct with cloudscraper
-            lambda: try_cloudscraper(url),
-            # Method 2: Direct with curl_cffi  
-            lambda: try_curl_cffi(url),
-            # Method 3: Via web cache/archive
-            lambda: try_web_cache(url),
-        ]
-        
-        for method in methods:
-            try:
-                html = method()
-                if html and len(html) > 10000 and 'Just a moment' not in html:
-                    # Extract price
-                    price_match = re.search(r'data-test="instrument-price-last"[^>]*>([^<]+)', html)
-                    if price_match:
-                        price_str = price_match.group(1).replace(',', '').strip()
+        # Quick attempt with requests only (10 second timeout)
+        try:
+            response = requests.get(
+                url,
+                timeout=10,
+                headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                }
+            )
+            
+            if response.status_code == 200:
+                html = response.text
+                
+                if 'Just a moment' in html or len(html) < 5000:
+                    print(f"  {asset['name']}: Blocked by Cloudflare", flush=True)
+                    continue
+                
+                # Extract price
+                price_match = re.search(r'data-test="instrument-price-last"[^>]*>([^<]+)', html)
+                if price_match:
+                    price_str = price_match.group(1).replace(',', '').strip()
+                    try:
                         price = float(price_str)
+                    except:
+                        pass
+                
+                if not price:
+                    match = re.search(r'"last":\s*([\d.]+)', html)
+                    if match:
+                        price = float(match.group(1))
+                
+                if price:
+                    change_match = re.search(r'"change":\s*(-?[\d.]+)', html)
+                    if change_match:
+                        change = float(change_match.group(1))
                     
-                    if not price:
-                        match = re.search(r'"last":\s*([\d.]+)', html)
-                        if match:
-                            price = float(match.group(1))
+                    pct_match = re.search(r'"changePercent":\s*(-?[\d.]+)', html)
+                    if not pct_match:
+                        pct_match = re.search(r'"changePcr":\s*(-?[\d.]+)', html)
+                    if pct_match:
+                        change_pct = float(pct_match.group(1))
                     
-                    if price:
-                        change_match = re.search(r'"change":\s*(-?[\d.]+)', html)
-                        if change_match:
-                            change = float(change_match.group(1))
-                        
-                        pct_match = re.search(r'"changePercent":\s*(-?[\d.]+)', html)
-                        if not pct_match:
-                            pct_match = re.search(r'"changePcr":\s*(-?[\d.]+)', html)
-                        if pct_match:
-                            change_pct = float(pct_match.group(1))
-                        
-                        print(f"  {asset['name']}: ${price:,.4f} ({change_pct:+.2f}%)", flush=True)
-                        break
-            except:
-                continue
-        
-        if price and price > 0:
-            results.append({
-                'symbol': asset['symbol'],
-                'regularMarketPrice': price,
-                'regularMarketChange': change,
-                'regularMarketChangePercent': change_pct,
-            })
-        else:
-            print(f"  {asset['name']}: FAILED", flush=True)
+                    results.append({
+                        'symbol': asset['symbol'],
+                        'regularMarketPrice': price,
+                        'regularMarketChange': change,
+                        'regularMarketChangePercent': change_pct,
+                    })
+                    print(f"  {asset['name']}: ${price:,.4f}", flush=True)
+                else:
+                    print(f"  {asset['name']}: No price found", flush=True)
+            else:
+                print(f"  {asset['name']}: HTTP {response.status_code}", flush=True)
+                
+        except requests.exceptions.Timeout:
+            print(f"  {asset['name']}: Timeout", flush=True)
+        except Exception as e:
+            print(f"  {asset['name']}: Error - {str(e)[:50]}", flush=True)
     
     print(f"Total: {len(results)}/{len(ASSETS)}", flush=True)
     
     if results:
         return {'quoteResponse': {'result': results}}
-    return None
-
-def try_cloudscraper(url):
-    """Try fetching with cloudscraper"""
-    try:
-        import cloudscraper
-        scraper = cloudscraper.create_scraper(browser={'browser': 'chrome', 'platform': 'windows', 'desktop': True})
-        response = scraper.get(url, timeout=30)
-        if response.status_code == 200:
-            return response.text
-    except:
-        pass
-    return None
-
-def try_curl_cffi(url):
-    """Try fetching with curl_cffi"""
-    try:
-        from curl_cffi import requests
-        for browser in ['chrome120', 'chrome110', 'safari15_5']:
-            try:
-                response = requests.get(url, impersonate=browser, timeout=30)
-                if response.status_code == 200:
-                    return response.text
-            except:
-                continue
-    except:
-        pass
-    return None
-
-def try_web_cache(url):
-    """Try fetching via web cache services"""
-    import requests
-    import urllib.parse
-    
-    # Google cache
-    try:
-        cache_url = f"https://webcache.googleusercontent.com/search?q=cache:{urllib.parse.quote(url)}"
-        response = requests.get(cache_url, timeout=20, headers={'User-Agent': 'Mozilla/5.0'})
-        if response.status_code == 200 and len(response.text) > 5000:
-            return response.text
-    except:
-        pass
-    
     return None
 
 def update_price_cache():
@@ -212,33 +175,30 @@ def update_price_cache():
 def background_price_updater():
     """Background thread that continuously updates prices 24/7"""
     consecutive_failures = 0
-    max_failures = 10
+    max_failures = 5
     
     while True:
         try:
             success = update_price_cache()
             if success:
                 consecutive_failures = 0
-                time.sleep(3)  # Normal: update every 3 seconds
+                time.sleep(10)  # Update every 10 seconds when working
             else:
                 consecutive_failures += 1
-                # Exponential backoff on failures (max 60 seconds)
-                wait_time = min(3 * (2 ** consecutive_failures), 60)
+                wait_time = min(30 * consecutive_failures, 300)  # Max 5 min wait
                 print(f"  Retry in {wait_time}s (failure #{consecutive_failures})", flush=True)
                 time.sleep(wait_time)
                 
         except Exception as e:
             consecutive_failures += 1
             print(f"Update error: {e}", flush=True)
-            # Wait before retrying
-            wait_time = min(3 * (2 ** consecutive_failures), 60)
-            time.sleep(wait_time)
+            time.sleep(60)  # Wait 1 minute on error
             
-        # Reset failure count periodically to recover from temporary issues
+        # Reset after max failures and wait longer
         if consecutive_failures >= max_failures:
-            print("Too many failures, resetting and continuing...", flush=True)
+            print("Too many failures, waiting 5 minutes...", flush=True)
             consecutive_failures = 0
-            time.sleep(30)
+            time.sleep(300)  # Wait 5 minutes
 
 def start_background_updater():
     """Start the background price updater if not already running"""
