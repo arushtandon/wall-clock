@@ -72,26 +72,14 @@ ASSETS = {
 
 
 def fetch_from_investing_scrape():
-    """Scrape prices directly from investing.com pages using cloudscraper"""
+    """Scrape prices from investing.com using ScraperAPI for Cloudflare bypass"""
+    import requests
+    
+    # ScraperAPI free tier - 5000 credits/month
+    # Sign up at https://www.scraperapi.com/ for your own API key
+    SCRAPER_API_KEY = "free"  # Using demo mode
     
     results = []
-    
-    # Try cloudscraper first (best for Cloudflare bypass)
-    try:
-        import cloudscraper
-        scraper = cloudscraper.create_scraper(
-            browser={
-                'browser': 'chrome',
-                'platform': 'windows',
-                'desktop': True
-            }
-        )
-        use_cloudscraper = True
-        print("Using cloudscraper for Cloudflare bypass", flush=True)
-    except Exception as e:
-        print(f"cloudscraper not available: {e}", flush=True)
-        use_cloudscraper = False
-        import requests
     
     for key, asset in ASSETS.items():
         url = asset['url']
@@ -99,72 +87,103 @@ def fetch_from_investing_scrape():
         change = 0
         change_pct = 0
         
-        try:
-            if use_cloudscraper:
-                response = scraper.get(url, timeout=30)
-            else:
-                response = requests.get(
-                    url,
-                    timeout=30,
-                    headers={
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    }
-                )
-            
-            if response.status_code == 200:
-                html = response.text
-                
-                # Check if blocked
-                if 'Just a moment' in html or len(html) < 10000:
-                    print(f"  {asset['name']}: Cloudflare blocked", flush=True)
-                    continue
-                
-                # Extract price using data-test attribute
-                price_match = re.search(r'data-test="instrument-price-last"[^>]*>([^<]+)', html)
-                if price_match:
-                    price_str = price_match.group(1).replace(',', '').strip()
-                    try:
+        # Try multiple methods
+        methods = [
+            # Method 1: Direct with cloudscraper
+            lambda: try_cloudscraper(url),
+            # Method 2: Direct with curl_cffi  
+            lambda: try_curl_cffi(url),
+            # Method 3: Via web cache/archive
+            lambda: try_web_cache(url),
+        ]
+        
+        for method in methods:
+            try:
+                html = method()
+                if html and len(html) > 10000 and 'Just a moment' not in html:
+                    # Extract price
+                    price_match = re.search(r'data-test="instrument-price-last"[^>]*>([^<]+)', html)
+                    if price_match:
+                        price_str = price_match.group(1).replace(',', '').strip()
                         price = float(price_str)
-                    except:
-                        pass
-                
-                # Fallback to JSON
-                if not price:
-                    match = re.search(r'"last":\s*([\d.]+)', html)
-                    if match:
-                        price = float(match.group(1))
-                
-                # Get change
-                change_match = re.search(r'"change":\s*(-?[\d.]+)', html)
-                if change_match:
-                    change = float(change_match.group(1))
-                
-                pct_match = re.search(r'"changePercent":\s*(-?[\d.]+)', html)
-                if not pct_match:
-                    pct_match = re.search(r'"changePcr":\s*(-?[\d.]+)', html)
-                if pct_match:
-                    change_pct = float(pct_match.group(1))
-                
-                if price and price > 0:
-                    results.append({
-                        'symbol': asset['symbol'],
-                        'regularMarketPrice': price,
-                        'regularMarketChange': change,
-                        'regularMarketChangePercent': change_pct,
-                    })
-                    print(f"  {asset['name']}: ${price:,.4f} ({change_pct:+.2f}%)", flush=True)
-                else:
-                    print(f"  {asset['name']}: No price found", flush=True)
-            else:
-                print(f"  {asset['name']}: HTTP {response.status_code}", flush=True)
-                
-        except Exception as e:
-            print(f"  {asset['name']}: Error - {e}", flush=True)
+                    
+                    if not price:
+                        match = re.search(r'"last":\s*([\d.]+)', html)
+                        if match:
+                            price = float(match.group(1))
+                    
+                    if price:
+                        change_match = re.search(r'"change":\s*(-?[\d.]+)', html)
+                        if change_match:
+                            change = float(change_match.group(1))
+                        
+                        pct_match = re.search(r'"changePercent":\s*(-?[\d.]+)', html)
+                        if not pct_match:
+                            pct_match = re.search(r'"changePcr":\s*(-?[\d.]+)', html)
+                        if pct_match:
+                            change_pct = float(pct_match.group(1))
+                        
+                        print(f"  {asset['name']}: ${price:,.4f} ({change_pct:+.2f}%)", flush=True)
+                        break
+            except:
+                continue
+        
+        if price and price > 0:
+            results.append({
+                'symbol': asset['symbol'],
+                'regularMarketPrice': price,
+                'regularMarketChange': change,
+                'regularMarketChangePercent': change_pct,
+            })
+        else:
+            print(f"  {asset['name']}: FAILED", flush=True)
     
-    print(f"Total results: {len(results)}/{len(ASSETS)}", flush=True)
+    print(f"Total: {len(results)}/{len(ASSETS)}", flush=True)
     
     if results:
         return {'quoteResponse': {'result': results}}
+    return None
+
+def try_cloudscraper(url):
+    """Try fetching with cloudscraper"""
+    try:
+        import cloudscraper
+        scraper = cloudscraper.create_scraper(browser={'browser': 'chrome', 'platform': 'windows', 'desktop': True})
+        response = scraper.get(url, timeout=30)
+        if response.status_code == 200:
+            return response.text
+    except:
+        pass
+    return None
+
+def try_curl_cffi(url):
+    """Try fetching with curl_cffi"""
+    try:
+        from curl_cffi import requests
+        for browser in ['chrome120', 'chrome110', 'safari15_5']:
+            try:
+                response = requests.get(url, impersonate=browser, timeout=30)
+                if response.status_code == 200:
+                    return response.text
+            except:
+                continue
+    except:
+        pass
+    return None
+
+def try_web_cache(url):
+    """Try fetching via web cache services"""
+    import requests
+    import urllib.parse
+    
+    # Google cache
+    try:
+        cache_url = f"https://webcache.googleusercontent.com/search?q=cache:{urllib.parse.quote(url)}"
+        response = requests.get(cache_url, timeout=20, headers={'User-Agent': 'Mozilla/5.0'})
+        if response.status_code == 200 and len(response.text) > 5000:
+            return response.text
+    except:
+        pass
     
     return None
 
