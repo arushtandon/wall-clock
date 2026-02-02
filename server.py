@@ -32,7 +32,7 @@ ib_connected = False
 # ============== IBKR Configuration ==============
 # IB Gateway connection settings
 IB_HOST = '127.0.0.1'  # localhost if IB Gateway runs on same server
-IB_PORT = 4002         # 4001 for TWS live, 4002 for IB Gateway live, 7497 for TWS paper, 7496 for Gateway paper
+IB_PORTS = [4002, 4001, 7496, 7497]  # Try multiple ports
 IB_CLIENT_ID = 1
 
 # Asset configuration with IBKR contract details
@@ -141,25 +141,30 @@ def run_ibkr_connection():
     while True:
         ib = None
         try:
-            # First check if IB Gateway is reachable
-            print(f"Checking IB Gateway at {IB_HOST}:{IB_PORT}...", flush=True)
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(5)
-            result = sock.connect_ex((IB_HOST, IB_PORT))
-            sock.close()
+            # Try multiple ports to find IB Gateway
+            connected_port = None
+            for port in IB_PORTS:
+                print(f"Checking IB Gateway at {IB_HOST}:{port}...", flush=True)
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(3)
+                result = sock.connect_ex((IB_HOST, port))
+                sock.close()
+                
+                if result == 0:
+                    connected_port = port
+                    print(f"IB Gateway found on port {port}!", flush=True)
+                    break
             
-            if result != 0:
-                print(f"IB Gateway not reachable on port {IB_PORT}. Is it running?", flush=True)
-                print("Start IB Gateway with: systemctl start ibgateway", flush=True)
-                time.sleep(10)
+            if not connected_port:
+                print(f"IB Gateway not reachable on any port {IB_PORTS}. Is it running?", flush=True)
+                print("Waiting 30 seconds before retry...", flush=True)
+                time.sleep(30)
                 continue
-            
-            print("IB Gateway is reachable, connecting...", flush=True)
             
             from ib_insync import IB, Index, Future, Forex
             
             ib = IB()
-            ib.connect(IB_HOST, IB_PORT, clientId=IB_CLIENT_ID, timeout=15)
+            ib.connect(IB_HOST, connected_port, clientId=IB_CLIENT_ID, timeout=15)
             ib_connected = True
             print("Connected to Interactive Brokers!", flush=True)
             
