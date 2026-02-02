@@ -97,6 +97,30 @@ def parse_tv_message(message):
                 pass
     return results
 
+def update_cache_from_ws():
+    """Immediately update price_cache from WebSocket data"""
+    global ws_prices, price_cache
+    
+    if not ws_prices:
+        return
+    
+    results = []
+    for key, asset in ASSETS.items():
+        tv_symbol = asset['tv_symbol']
+        if tv_symbol in ws_prices:
+            data = ws_prices[tv_symbol]
+            results.append({
+                'symbol': asset['symbol'],
+                'regularMarketPrice': data['price'],
+                'regularMarketChange': data['change'],
+                'regularMarketChangePercent': data['change_pct'],
+            })
+    
+    if results:
+        with price_cache['lock']:
+            price_cache['data'] = {'quoteResponse': {'result': results}}
+            price_cache['last_update'] = time.time()
+
 def start_websocket():
     """Start TradingView WebSocket connection for real-time data"""
     global ws_prices, ws_connected, ws_instance
@@ -108,7 +132,7 @@ def start_websocket():
             session = generate_session()
             
             def on_message(ws, message):
-                global ws_prices
+                global ws_prices, price_cache
                 try:
                     # Handle ping/pong
                     if '~h~' in message:
@@ -130,7 +154,9 @@ def start_websocket():
                                         'change': values.get('ch', 0) or 0,
                                         'change_pct': values.get('chp', 0) or 0,
                                     }
-                                    print(f"  WS: {symbol} = {price}", flush=True)
+                                    
+                                    # Immediately update price_cache for instant API response
+                                    update_cache_from_ws()
                 except Exception as e:
                     pass
             
@@ -297,28 +323,20 @@ def background_price_updater():
             success = update_price_cache()
             if success:
                 consecutive_failures = 0
-                # If WebSocket is connected, we have real-time data
-                # Just refresh cache more slowly since WebSocket pushes updates
-                if ws_connected:
-                    time.sleep(0.1)  # 100ms - just cache refresh
-                else:
-                    time.sleep(0.5)  # 500ms - scanner API polling
+                # Fast polling for real-time feel
+                time.sleep(0.01)  # 10ms refresh
             else:
                 consecutive_failures += 1
-                wait_time = min(5 * consecutive_failures, 30)
-                print(f"  Retry in {wait_time}s (failure #{consecutive_failures})", flush=True)
+                wait_time = min(2 * consecutive_failures, 10)
                 time.sleep(wait_time)
                 
         except Exception as e:
             consecutive_failures += 1
-            print(f"Update error: {e}", flush=True)
-            time.sleep(10)
+            time.sleep(5)
             
-        # Reset after 10 failures
         if consecutive_failures >= 10:
-            print("Resetting failure count, continuing...", flush=True)
             consecutive_failures = 0
-            time.sleep(30)
+            time.sleep(10)
 
 def start_background_updater():
     """Start the background price updater and WebSocket connection"""
