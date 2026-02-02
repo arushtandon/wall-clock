@@ -176,8 +176,10 @@ def run_websocket():
                 ws_connected = True
                 print("WebSocket connected!", flush=True)
                 
-                # Authenticate (use empty token for public data, or premium token if available)
-                ws.send(create_message('set_auth_token', ['unauthorized_user_token']))
+                # Authenticate with TradingView Premium session
+                auth_token = 'ul9ljpf31sb5azqquo0kuejtl2700x1m'
+                ws.send(create_message('set_auth_token', [auth_token]))
+                print("Authenticated with premium session", flush=True)
                 
                 # Create quote session
                 ws.send(create_message('quote_create_session', [session_id]))
