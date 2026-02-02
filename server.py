@@ -1,9 +1,7 @@
 """
-Wall Clock Server - Live prices via Interactive Brokers
+Wall Clock Server - Live prices from TradingView
 Run: python server.py
 Then open: http://localhost:8080
-
-Requires: IB Gateway running on the server
 """
 
 from flask import Flask, jsonify, send_file
@@ -11,6 +9,7 @@ import json
 import os
 import threading
 import time
+import requests
 
 PORT = int(os.environ.get('PORT', 8080))
 app = Flask(__name__, static_folder=os.path.dirname(os.path.abspath(__file__)))
@@ -25,240 +24,138 @@ price_cache = {
     'lock': threading.Lock()
 }
 
-# Live prices storage
-live_prices = {}
-ib_connected = False
-
-# ============== IBKR Configuration ==============
-# IB Gateway connection settings
-IB_HOST = '127.0.0.1'  # localhost if IB Gateway runs on same server
-IB_PORTS = [4000, 4002, 4001, 7496, 7497]  # Try multiple ports including custom 4000
-IB_CLIENT_ID = 1
-
-# Asset configuration with IBKR contract details
+# TradingView configuration
 ASSETS = {
     'silver': {
-        'symbol': 'XAGUSD',
-        'secType': 'CMDTY',
-        'exchange': 'SMART',
-        'currency': 'USD',
+        'tv_symbol': 'TVC:SILVER',
+        'symbol': 'XAG/USD',
         'name': 'Silver',
-        'display_symbol': 'XAG/USD',
     },
     'gold': {
-        'symbol': 'XAUUSD',
-        'secType': 'CMDTY',
-        'exchange': 'SMART',
-        'currency': 'USD',
+        'tv_symbol': 'OANDA:XAUUSD',
+        'symbol': 'XAU/USD', 
         'name': 'Gold',
-        'display_symbol': 'XAU/USD',
     },
     'sp500': {
-        'symbol': 'SPX',
-        'secType': 'IND',
-        'exchange': 'CBOE',
-        'currency': 'USD',
+        'tv_symbol': 'SP:SPX',
+        'symbol': '^GSPC',
         'name': 'S&P 500',
-        'display_symbol': '^GSPC',
     },
     'nasdaq': {
-        'symbol': 'NDX',
-        'secType': 'IND',
-        'exchange': 'NASDAQ',
-        'currency': 'USD',
+        'tv_symbol': 'NASDAQ:NDX',
+        'symbol': '^IXIC',
         'name': 'Nasdaq',
-        'display_symbol': '^IXIC',
     },
     'sp500_futures': {
+        'tv_symbol': 'CME_MINI:ES1!',
         'symbol': 'ES',
-        'secType': 'FUT',
-        'exchange': 'CME',
-        'currency': 'USD',
-        'lastTradeDateOrContractMonth': '',  # Will be set dynamically
         'name': 'S&P 500 Futures',
-        'display_symbol': 'ES',
     },
     'nasdaq_futures': {
+        'tv_symbol': 'CME_MINI:NQ1!',
         'symbol': 'NQ',
-        'secType': 'FUT',
-        'exchange': 'CME',
-        'currency': 'USD',
-        'lastTradeDateOrContractMonth': '',  # Will be set dynamically
         'name': 'Nasdaq Futures',
-        'display_symbol': 'NQ',
     },
     'nifty_futures': {
-        'symbol': 'NIFTY50',
-        'secType': 'FUT',
-        'exchange': 'NSE',
-        'currency': 'INR',
-        'lastTradeDateOrContractMonth': '',  # Will be set dynamically
+        'tv_symbol': 'NSE:NIFTY1!',
+        'symbol': 'NIFTY',
         'name': 'Nifty Futures',
-        'display_symbol': 'NIFTY',
     }
 }
 
-def get_front_month():
-    """Get the front month contract date (YYYYMM format)"""
-    from datetime import datetime, timedelta
-    now = datetime.now()
-    # Futures typically roll on 3rd Friday, so use next month if past 15th
-    if now.day > 15:
-        now = now.replace(day=1) + timedelta(days=32)
-    return now.strftime('%Y%m')
 
-def update_price_cache_from_live():
-    """Update the Flask cache from live prices"""
-    global live_prices, price_cache
+def fetch_from_tradingview():
+    """Fetch prices from TradingView scanner API"""
+    symbols = [asset['tv_symbol'] for asset in ASSETS.values()]
+    url = "https://scanner.tradingview.com/global/scan"
     
-    results = []
-    for key, asset in ASSETS.items():
-        if key in live_prices:
-            data = live_prices[key]
-            results.append({
-                'symbol': asset['display_symbol'],
-                'regularMarketPrice': data.get('price', 0),
-                'regularMarketChange': data.get('change', 0),
-                'regularMarketChangePercent': data.get('change_pct', 0),
-            })
+    payload = {
+        "symbols": {"tickers": symbols},
+        "columns": ["close", "change", "change_abs"]
+    }
     
-    if results:
+    try:
+        response = requests.post(
+            url,
+            json=payload,
+            timeout=10,
+            headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Content-Type': 'application/json',
+            }
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            results = []
+            
+            for item in data.get('data', []):
+                tv_symbol = item.get('s', '')
+                values = item.get('d', [])
+                
+                if len(values) >= 3 and values[0]:
+                    for key, asset in ASSETS.items():
+                        if asset['tv_symbol'] == tv_symbol:
+                            results.append({
+                                'symbol': asset['symbol'],
+                                'regularMarketPrice': values[0],
+                                'regularMarketChange': values[2] if values[2] else 0,
+                                'regularMarketChangePercent': values[1] if values[1] else 0,
+                            })
+                            break
+            
+            if results:
+                return {'quoteResponse': {'result': results}}
+                            
+    except Exception as e:
+        print(f"TradingView error: {e}", flush=True)
+    
+    return None
+
+def update_price_cache():
+    """Update the price cache from TradingView"""
+    global price_cache
+    
+    data = fetch_from_tradingview()
+    
+    if data and data.get('quoteResponse', {}).get('result'):
         with price_cache['lock']:
-            price_cache['data'] = {'quoteResponse': {'result': results}}
+            price_cache['data'] = data
             price_cache['last_update'] = time.time()
+        return True
+    return False
 
-def run_ibkr_connection():
-    """Run IBKR connection using ib_insync for real-time prices"""
-    global live_prices, ib_connected
-    
-    import asyncio
-    import socket
-    
-    # Create new event loop for this thread
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+def background_price_updater():
+    """Background thread that continuously updates prices 24/7"""
+    update_interval = 2  # seconds between updates
     
     while True:
-        ib = None
         try:
-            # Try multiple ports to find IB Gateway
-            connected_port = None
-            for port in IB_PORTS:
-                print(f"Checking IB Gateway at {IB_HOST}:{port}...", flush=True)
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(3)
-                result = sock.connect_ex((IB_HOST, port))
-                sock.close()
+            start_time = time.time()
+            success = update_price_cache()
+            elapsed = time.time() - start_time
+            
+            # Always wait the same interval regardless of success/failure
+            wait_time = max(0.1, update_interval - elapsed)
+            time.sleep(wait_time)
                 
-                if result == 0:
-                    connected_port = port
-                    print(f"IB Gateway found on port {port}!", flush=True)
-                    break
-            
-            if not connected_port:
-                print(f"IB Gateway not reachable on any port {IB_PORTS}. Is it running?", flush=True)
-                print("Waiting 30 seconds before retry...", flush=True)
-                time.sleep(30)
-                continue
-            
-            from ib_insync import IB, Index, Future, Forex
-            
-            ib = IB()
-            ib.connect(IB_HOST, connected_port, clientId=IB_CLIENT_ID, timeout=15)
-            ib_connected = True
-            print("Connected to Interactive Brokers!", flush=True)
-            
-            # Get front month for futures
-            front_month = get_front_month()
-            print(f"Using front month: {front_month}", flush=True)
-            
-            # Create contracts
-            contracts = {}
-            
-            # Silver & Gold as Forex pairs
-            contracts['silver'] = Forex('XAGUSD')
-            contracts['gold'] = Forex('XAUUSD')
-            
-            # Indices
-            contracts['sp500'] = Index('SPX', 'CBOE', 'USD')
-            contracts['nasdaq'] = Index('NDX', 'NASDAQ', 'USD')
-            
-            # Futures
-            contracts['sp500_futures'] = Future('ES', front_month, 'CME')
-            contracts['nasdaq_futures'] = Future('NQ', front_month, 'CME')
-            contracts['nifty_futures'] = Future('NIFTY50', front_month, 'SGX')
-            
-            # Qualify and subscribe
-            tickers = {}
-            for key, contract in contracts.items():
-                try:
-                    qualified = ib.qualifyContracts(contract)
-                    if qualified:
-                        ticker = ib.reqMktData(contract, '', False, False)
-                        tickers[key] = ticker
-                        print(f"Subscribed: {key}", flush=True)
-                    else:
-                        print(f"Could not qualify: {key}", flush=True)
-                except Exception as e:
-                    print(f"Error with {key}: {e}", flush=True)
-            
-            print(f"Streaming {len(tickers)} symbols...", flush=True)
-            
-            # Process updates
-            while ib.isConnected():
-                ib.sleep(0.1)
-                
-                for key, ticker in tickers.items():
-                    price = None
-                    if ticker.last and ticker.last > 0:
-                        price = ticker.last
-                    elif ticker.close and ticker.close > 0:
-                        price = ticker.close
-                    elif ticker.bid and ticker.bid > 0 and ticker.ask and ticker.ask > 0:
-                        price = (ticker.bid + ticker.ask) / 2
-                    
-                    if price and price > 0:
-                        prev_close = ticker.close if ticker.close and ticker.close > 0 else price
-                        change = price - prev_close
-                        change_pct = (change / prev_close * 100) if prev_close else 0
-                        
-                        old_price = live_prices.get(key, {}).get('price', 0)
-                        if abs(price - old_price) > 0.0001:
-                            live_prices[key] = {
-                                'price': price,
-                                'change': change,
-                                'change_pct': change_pct,
-                            }
-                            update_price_cache_from_live()
-                            print(f"  {ASSETS[key]['name']}: {price:.4f}", flush=True)
-            
-            print("IB connection lost", flush=True)
-            ib_connected = False
-            
         except Exception as e:
-            print(f"IBKR error: {type(e).__name__}: {e}", flush=True)
-            ib_connected = False
-        
-        # Cleanup
-        if ib:
-            try:
-                ib.disconnect()
-            except:
-                pass
-        
-        print("Retrying in 10 seconds...", flush=True)
-        time.sleep(10)
+            print(f"Updater error: {e}", flush=True)
+            time.sleep(update_interval)
 
 def start_background_updater():
-    """Start the IBKR connection"""
+    """Start the background price updater"""
     global _updater_started
     if not _updater_started:
         _updater_started = True
         
-        print("Starting Interactive Brokers connection for real-time prices...", flush=True)
-        ib_thread = threading.Thread(target=run_ibkr_connection, daemon=True)
-        ib_thread.start()
-        print("IBKR thread started", flush=True)
+        print("Fetching initial prices from TradingView...", flush=True)
+        update_price_cache()
+        
+        print("Starting background price updater...", flush=True)
+        updater = threading.Thread(target=background_price_updater, daemon=True)
+        updater.start()
+        print("Background updater started - updates every 2 seconds", flush=True)
 
 # Start updater when app is imported (for gunicorn)
 start_background_updater()
@@ -301,7 +198,7 @@ def api_prices():
     if data:
         return jsonify(data)
     else:
-        return jsonify({'error': 'Loading prices from investing.com...', 'retry': True}), 503
+        return jsonify({'error': 'Loading prices...', 'retry': True}), 503
 
 def get_local_ip():
     """Get the local IP address for network access"""
@@ -319,7 +216,7 @@ if __name__ == '__main__':
     local_ip = get_local_ip()
     
     print("\n" + "="*60)
-    print("          MARKET WALL CLOCK - investing.com")
+    print("          MARKET WALL CLOCK - TradingView")
     print("="*60)
     
     print(f"""
@@ -328,10 +225,7 @@ if __name__ == '__main__':
     This PC:        http://localhost:{PORT}
     Same Network:   http://{local_ip}:{PORT}
     
-  For PUBLIC internet access, run in another terminal:
-    ngrok http {PORT}
-    
-  Prices from: investing.com (updates every 2 seconds)
+  Prices from: TradingView (updates every 2 seconds)
   Press Ctrl+C to stop
 {"="*60}
     """, flush=True)
