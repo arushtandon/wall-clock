@@ -287,6 +287,12 @@ def icon_192():
 def icon_512():
     return send_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icon-512.png'), mimetype='image/png')
 
+@app.route('/screen.png')
+def screen():
+    if os.path.exists('/tmp/screen.png'):
+        return send_file('/tmp/screen.png', mimetype='image/png')
+    return "No screenshot available", 404
+
 @app.route('/api/prices')
 def api_prices():
     with price_cache['lock']:
