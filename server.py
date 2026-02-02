@@ -158,7 +158,7 @@ def background_price_updater():
             success = update_price_cache()
             if success:
                 consecutive_failures = 0
-                time.sleep(5)  # Update every 5 seconds when working
+                time.sleep(1)  # Update every 1 second when working
             else:
                 consecutive_failures += 1
                 wait_time = min(10 * consecutive_failures, 60)  # Max 1 min wait
