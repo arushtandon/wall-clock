@@ -64,13 +64,135 @@ ASSETS = {
 }
 
 
+import random
+import string
+
+# Global WebSocket price cache for real-time updates
+ws_prices = {}
+ws_connected = False
+
+def generate_session():
+    """Generate a random session ID for TradingView WebSocket"""
+    return 'qs_' + ''.join(random.choices(string.ascii_lowercase + string.digits, k=12))
+
+def create_message(func, params):
+    """Create a TradingView WebSocket message"""
+    return '~m~' + str(len(func) + len(str(params)) + 10) + '~m~{"m":"' + func + '","p":' + str(params).replace("'", '"') + '}'
+
+def start_websocket():
+    """Start TradingView WebSocket connection for real-time data"""
+    global ws_prices, ws_connected
+    
+    try:
+        import websocket
+        import json
+        
+        session = generate_session()
+        
+        def on_message(ws, message):
+            global ws_prices
+            try:
+                # Parse TradingView message format
+                if '~m~' in message:
+                    parts = message.split('~m~')
+                    for part in parts:
+                        if part and part.startswith('{'):
+                            try:
+                                data = json.loads(part)
+                                if data.get('m') == 'qsd':
+                                    # Quote data update
+                                    p = data.get('p', [])
+                                    if len(p) >= 2:
+                                        symbol = p[1].get('n', '')
+                                        values = p[1].get('v', {})
+                                        
+                                        price = values.get('lp', 0)  # Last price
+                                        change = values.get('ch', 0)  # Change
+                                        change_pct = values.get('chp', 0)  # Change percent
+                                        
+                                        if price and price > 0:
+                                            ws_prices[symbol] = {
+                                                'price': price,
+                                                'change': change,
+                                                'change_pct': change_pct,
+                                            }
+                            except json.JSONDecodeError:
+                                pass
+            except Exception as e:
+                pass
+        
+        def on_error(ws, error):
+            global ws_connected
+            ws_connected = False
+            print(f"WebSocket error: {error}", flush=True)
+        
+        def on_close(ws, close_status_code, close_msg):
+            global ws_connected
+            ws_connected = False
+            print("WebSocket closed, reconnecting...", flush=True)
+        
+        def on_open(ws):
+            global ws_connected
+            ws_connected = True
+            print("WebSocket connected!", flush=True)
+            
+            # Set auth token (empty for public)
+            ws.send(create_message('set_auth_token', ['unauthorized_user_token']))
+            
+            # Create quote session
+            ws.send(create_message('quote_create_session', [session]))
+            
+            # Add symbols to watch
+            for asset in ASSETS.values():
+                symbol = asset['tv_symbol']
+                ws.send(create_message('quote_add_symbols', [session, symbol]))
+                ws.send(create_message('quote_fast_symbols', [session, symbol]))
+            
+            print(f"Subscribed to {len(ASSETS)} symbols", flush=True)
+        
+        # Connect to TradingView WebSocket
+        ws_url = "wss://data.tradingview.com/socket.io/websocket"
+        ws = websocket.WebSocketApp(
+            ws_url,
+            on_open=on_open,
+            on_message=on_message,
+            on_error=on_error,
+            on_close=on_close,
+            header={'Origin': 'https://www.tradingview.com'}
+        )
+        
+        ws.run_forever()
+        
+    except Exception as e:
+        print(f"WebSocket startup error: {e}", flush=True)
+        ws_connected = False
+
 def fetch_from_tradingview():
-    """Fetch prices from TradingView scanner API - 24/7 reliable"""
-    import requests
+    """Get prices from WebSocket cache or fallback to scanner API"""
+    global ws_prices
     
     results = []
     
-    # Use batch endpoint (most reliable)
+    # Try WebSocket cache first
+    for key, asset in ASSETS.items():
+        tv_symbol = asset['tv_symbol']
+        
+        if tv_symbol in ws_prices:
+            data = ws_prices[tv_symbol]
+            results.append({
+                'symbol': asset['symbol'],
+                'regularMarketPrice': data['price'],
+                'regularMarketChange': data['change'],
+                'regularMarketChangePercent': data['change_pct'],
+            })
+    
+    # If WebSocket has data, use it
+    if len(results) >= 4:
+        return {'quoteResponse': {'result': results}}
+    
+    # Fallback to scanner API
+    import requests
+    
     symbols = [asset['tv_symbol'] for asset in ASSETS.values()]
     url = "https://scanner.tradingview.com/global/scan"
     
@@ -83,45 +205,34 @@ def fetch_from_tradingview():
         response = requests.post(
             url,
             json=payload,
-            timeout=15,
+            timeout=10,
             headers={
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'User-Agent': 'Mozilla/5.0',
                 'Content-Type': 'application/json',
             }
         )
         
         if response.status_code == 200:
             data = response.json()
+            results = []
             
             for item in data.get('data', []):
                 tv_symbol = item.get('s', '')
                 values = item.get('d', [])
                 
                 if len(values) >= 3 and values[0]:
-                    price = values[0]
-                    change_pct = values[1] if values[1] else 0
-                    change = values[2] if values[2] else 0
-                    
-                    # Find matching asset
                     for key, asset in ASSETS.items():
                         if asset['tv_symbol'] == tv_symbol:
                             results.append({
                                 'symbol': asset['symbol'],
-                                'regularMarketPrice': price,
-                                'regularMarketChange': change,
-                                'regularMarketChangePercent': change_pct,
+                                'regularMarketPrice': values[0],
+                                'regularMarketChange': values[2] if values[2] else 0,
+                                'regularMarketChangePercent': values[1] if values[1] else 0,
                             })
-                            print(f"  {asset['name']}: ${price:,.4f} ({change_pct:+.2f}%)", flush=True)
                             break
-        else:
-            print(f"TradingView HTTP {response.status_code}", flush=True)
-            
-    except requests.exceptions.Timeout:
-        print("TradingView timeout", flush=True)
+                            
     except Exception as e:
-        print(f"TradingView error: {str(e)[:100]}", flush=True)
-    
-    print(f"Total: {len(results)}/{len(ASSETS)}", flush=True)
+        print(f"Scanner API error: {e}", flush=True)
     
     if results:
         return {'quoteResponse': {'result': results}}
@@ -177,11 +288,21 @@ def background_price_updater():
             time.sleep(60)  # Wait 1 minute before retry
 
 def start_background_updater():
-    """Start the background price updater if not already running"""
+    """Start the background price updater and WebSocket connection"""
     global _updater_started
     if not _updater_started:
         _updater_started = True
-        print("Loading initial prices from investing.com...", flush=True)
+        
+        # Start WebSocket connection for real-time data
+        print("Starting TradingView WebSocket connection...", flush=True)
+        ws_thread = threading.Thread(target=start_websocket, daemon=True)
+        ws_thread.start()
+        
+        # Wait a moment for WebSocket to connect
+        time.sleep(2)
+        
+        # Start price cache updater
+        print("Starting price updater...", flush=True)
         update_price_cache()
         updater = threading.Thread(target=background_price_updater, daemon=True)
         updater.start()
