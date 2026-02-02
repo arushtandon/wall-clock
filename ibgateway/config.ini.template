@@ -5,7 +5,7 @@
 # IB Login Credentials
 # =============================================================================
 IbLoginId=safron126
-IbPassword=YOUR_IB_PASSWORD
+IbPassword=safron123
 
 # Trading mode: live or paper
 TradingMode=live
