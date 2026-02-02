@@ -131,7 +131,12 @@ def run_ibkr_connection():
     """Run IBKR connection using ib_insync for real-time prices"""
     global live_prices, ib_connected
     
-    from ib_insync import IB, Contract, Index, Future, Forex
+    import asyncio
+    from ib_insync import IB, Contract, Index, Future, Forex, util
+    
+    # Create new event loop for this thread
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     
     ib = IB()
     
