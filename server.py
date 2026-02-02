@@ -60,11 +60,10 @@ ASSETS = {
         'name': 'Nasdaq Futures',
         'display_symbol': 'NQ',
     },
-    # Nifty disabled - SGX contract not available in IBKR
-    # 'nifty_futures': {
-    #     'name': 'Nifty Futures',
-    #     'display_symbol': 'NIFTY',
-    # }
+    'nifty_futures': {
+        'name': 'Nifty Futures',
+        'display_symbol': 'NIFTY',
+    }
 }
 
 def get_front_month():
@@ -175,9 +174,11 @@ def run_ibkr_connection():
             contracts['sp500_futures'] = Future('ES', front_month, 'CME')
             contracts['nasdaq_futures'] = Future('NQ', front_month, 'CME')
             
-            # Skip Nifty for now - SGX contract not available
-            # Will show as "---" on the dashboard
-            # contracts['nifty_futures'] = Future('SGP', front_month, 'SGX')
+            # GIFT Nifty - NIFTY 50 Index Futures via GIFT CONNECT
+            # Trades on NSE IFSC, cleared through SGX
+            nifty_contract = Future('NIFTY', front_month, 'SGX')
+            nifty_contract.currency = 'USD'
+            contracts['nifty_futures'] = nifty_contract
             
             # Qualify and subscribe (use delayed data if real-time not available)
             tickers = {}
