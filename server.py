@@ -174,10 +174,9 @@ def run_ibkr_connection():
             contracts['sp500_futures'] = Future('ES', front_month, 'CME')
             contracts['nasdaq_futures'] = Future('NQ', front_month, 'CME')
             
-            # Nifty - SGX GIFT Nifty (formerly SGX Nifty)
-            nifty_contract = Future('NIFTY', front_month, 'SGX')
-            nifty_contract.currency = 'USD'
-            contracts['nifty_futures'] = nifty_contract
+            # Nifty - NSE NIFTY 50 Index (India)
+            # Using Index instead of Futures for accurate Nifty price
+            contracts['nifty_futures'] = Index('NIFTY50', 'NSE', 'INR')
             
             # Qualify and subscribe (use delayed data if real-time not available)
             tickers = {}
