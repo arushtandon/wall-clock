@@ -153,11 +153,18 @@ def run_ibkr_connection():
             print(f"Using front month: {front_month}", flush=True)
             
             # Create contracts
+            from ib_insync import Contract
             contracts = {}
             
-            # Silver & Gold as Forex pairs (CFD)
-            contracts['silver'] = Forex('XAGUSD')
-            contracts['gold'] = Forex('XAUUSD')
+            # Gold futures (COMEX) - standard contract
+            gold_contract = Future('GC', front_month, 'COMEX')
+            gold_contract.multiplier = '100'
+            contracts['gold'] = gold_contract
+            
+            # Silver futures (COMEX) - standard 5000oz contract
+            silver_contract = Future('SI', front_month, 'COMEX')
+            silver_contract.multiplier = '5000'
+            contracts['silver'] = silver_contract
             
             # Indices
             contracts['sp500'] = Index('SPX', 'CBOE', 'USD')
@@ -166,14 +173,20 @@ def run_ibkr_connection():
             # Futures
             contracts['sp500_futures'] = Future('ES', front_month, 'CME')
             contracts['nasdaq_futures'] = Future('NQ', front_month, 'CME')
-            contracts['nifty_futures'] = Future('NIFTY50', front_month, 'SGX')
             
-            # Qualify and subscribe
+            # Nifty - SGX GIFT Nifty (formerly SGX Nifty)
+            nifty_contract = Future('NIFTY', front_month, 'SGX')
+            nifty_contract.currency = 'USD'
+            contracts['nifty_futures'] = nifty_contract
+            
+            # Qualify and subscribe (use delayed data if real-time not available)
             tickers = {}
             for key, contract in contracts.items():
                 try:
                     qualified = ib.qualifyContracts(contract)
                     if qualified:
+                        # Request real-time data, fallback to delayed if not subscribed
+                        ib.reqMarketDataType(4)  # 4 = delayed-frozen (best available)
                         ticker = ib.reqMktData(contract, '', False, False)
                         tickers[key] = ticker
                         print(f"Subscribed: {key} -> {contract}", flush=True)
