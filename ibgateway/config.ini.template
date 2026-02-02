@@ -1,10 +1,10 @@
 # IBC Configuration File for IB Gateway Auto-Login
-# Copy this to /root/ibc/config.ini and fill in your credentials
+# Copy this to /root/ibc/config.ini and fill in your password
 
 # =============================================================================
 # IB Login Credentials
 # =============================================================================
-IbLoginId=YOUR_IB_USERNAME
+IbLoginId=safron126
 IbPassword=YOUR_IB_PASSWORD
 
 # Trading mode: live or paper
