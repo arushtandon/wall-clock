@@ -1,0 +1,27 @@
+[Unit]
+Description=Interactive Brokers Gateway
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Environment=DISPLAY=:99
+
+# Start Xvfb first
+ExecStartPre=/bin/bash -c 'pgrep Xvfb || Xvfb :99 -screen 0 1024x768x16 &'
+ExecStartPre=/bin/sleep 2
+
+# Start IB Gateway
+ExecStart=/bin/bash /root/wall-clock/ibgateway/start_ibgateway.sh
+
+# Restart policy - always restart
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=append:/var/log/ibgateway.log
+StandardError=append:/var/log/ibgateway.log
+
+[Install]
+WantedBy=multi-user.target

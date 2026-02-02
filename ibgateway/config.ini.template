@@ -1,0 +1,41 @@
+# IBC Configuration File for IB Gateway Auto-Login
+# Copy this to /root/ibc/config.ini and fill in your credentials
+
+# =============================================================================
+# IB Login Credentials
+# =============================================================================
+IbLoginId=YOUR_IB_USERNAME
+IbPassword=YOUR_IB_PASSWORD
+
+# Trading mode: live or paper
+TradingMode=live
+
+# =============================================================================
+# API Settings (Important for wall-clock)
+# =============================================================================
+# Accept API connections
+AcceptIncomingConnectionAction=accept
+
+# Allow connections from localhost
+IbAutoClosedown=no
+
+# API port (4001=live TWS, 4002=live Gateway, 7496=paper Gateway, 7497=paper TWS)
+OverrideTwsApiPort=4002
+
+# Allow API to make trades (set to no for safety if only viewing prices)
+ReadOnlyApi=yes
+
+# =============================================================================
+# Auto-Accept Dialogs
+# =============================================================================
+AcceptNonBrokerageAccountWarning=yes
+AcceptBidAskLastSizeDisplayBasisConfig=accept
+ExistingSessionDetectedAction=primary
+DismissPasswordExpiryWarning=yes
+DismissNSEComplianceNotice=yes
+
+# =============================================================================
+# Logging
+# =============================================================================
+IbDir=/root/Jts
+LogToConsole=yes
