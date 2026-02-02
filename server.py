@@ -32,7 +32,7 @@ ib_connected = False
 # ============== IBKR Configuration ==============
 # IB Gateway connection settings
 IB_HOST = '127.0.0.1'  # localhost if IB Gateway runs on same server
-IB_PORTS = [4002, 4001, 7496, 7497]  # Try multiple ports
+IB_PORTS = [4000, 4002, 4001, 7496, 7497]  # Try multiple ports including custom 4000
 IB_CLIENT_ID = 1
 
 # Asset configuration with IBKR contract details
