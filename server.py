@@ -1,5 +1,5 @@
 """
-Wall Clock Server - Live prices from investing.com
+Wall Clock Server - Live prices from TradingView
 Run: python server.py
 Then open: http://localhost:8080
 """
@@ -9,7 +9,7 @@ import json
 import os
 import threading
 import time
-import re
+import requests
 
 PORT = int(os.environ.get('PORT', 8080))
 app = Flask(__name__, static_folder=os.path.dirname(os.path.abspath(__file__)))
@@ -64,184 +64,8 @@ ASSETS = {
 }
 
 
-import random
-import string
-import requests
-
-# Global WebSocket price cache for real-time updates
-ws_prices = {}
-ws_connected = False
-ws_instance = None
-
-def generate_session():
-    """Generate a random session ID for TradingView WebSocket"""
-    return 'qs_' + ''.join(random.choices(string.ascii_lowercase + string.digits, k=12))
-
-def create_tv_message(method, params):
-    """Create a properly formatted TradingView WebSocket message"""
-    import json
-    msg = json.dumps({"m": method, "p": params})
-    return f"~m~{len(msg)}~m~{msg}"
-
-def parse_tv_message(message):
-    """Parse TradingView WebSocket messages"""
-    import json
-    results = []
-    parts = message.split('~m~')
-    for part in parts:
-        if part and not part.isdigit():
-            try:
-                if part.startswith('{'):
-                    results.append(json.loads(part))
-            except:
-                pass
-    return results
-
-def update_cache_from_ws():
-    """Immediately update price_cache from WebSocket data"""
-    global ws_prices, price_cache
-    
-    if not ws_prices:
-        return
-    
-    results = []
-    for key, asset in ASSETS.items():
-        tv_symbol = asset['tv_symbol']
-        if tv_symbol in ws_prices:
-            data = ws_prices[tv_symbol]
-            results.append({
-                'symbol': asset['symbol'],
-                'regularMarketPrice': data['price'],
-                'regularMarketChange': data['change'],
-                'regularMarketChangePercent': data['change_pct'],
-            })
-    
-    if results:
-        with price_cache['lock']:
-            price_cache['data'] = {'quoteResponse': {'result': results}}
-            price_cache['last_update'] = time.time()
-
-def start_websocket():
-    """Start TradingView WebSocket connection for real-time data"""
-    global ws_prices, ws_connected, ws_instance
-    
-    while True:  # Auto-reconnect loop
-        try:
-            import websocket
-            
-            session = generate_session()
-            
-            def on_message(ws, message):
-                global ws_prices, price_cache
-                try:
-                    # Handle ping/pong
-                    if '~h~' in message:
-                        ws.send(message)
-                        return
-                    
-                    msgs = parse_tv_message(message)
-                    for data in msgs:
-                        if data.get('m') == 'qsd':
-                            p = data.get('p', [])
-                            if len(p) >= 2 and isinstance(p[1], dict):
-                                symbol = p[1].get('n', '')
-                                values = p[1].get('v', {})
-                                
-                                price = values.get('lp')
-                                if price and price > 0:
-                                    ws_prices[symbol] = {
-                                        'price': price,
-                                        'change': values.get('ch', 0) or 0,
-                                        'change_pct': values.get('chp', 0) or 0,
-                                    }
-                                    
-                                    # Immediately update price_cache for instant API response
-                                    update_cache_from_ws()
-                except Exception as e:
-                    pass
-            
-            def on_error(ws, error):
-                global ws_connected
-                ws_connected = False
-                print(f"WebSocket error: {error}", flush=True)
-            
-            def on_close(ws, close_status_code, close_msg):
-                global ws_connected
-                ws_connected = False
-                print("WebSocket closed", flush=True)
-            
-            def on_open(ws):
-                global ws_connected
-                ws_connected = True
-                print("WebSocket connected!", flush=True)
-                
-                try:
-                    # Auth token
-                    ws.send(create_tv_message('set_auth_token', ['unauthorized_user_token']))
-                    
-                    # Create quote session
-                    ws.send(create_tv_message('quote_create_session', [session]))
-                    
-                    # Set fields to receive
-                    fields = ['lp', 'ch', 'chp', 'volume', 'bid', 'ask']
-                    ws.send(create_tv_message('quote_set_fields', [session] + fields))
-                    
-                    # Add symbols
-                    for asset in ASSETS.values():
-                        symbol = asset['tv_symbol']
-                        ws.send(create_tv_message('quote_add_symbols', [session, symbol]))
-                    
-                    print(f"Subscribed to {len(ASSETS)} symbols", flush=True)
-                except Exception as e:
-                    print(f"Subscription error: {e}", flush=True)
-            
-            ws_url = "wss://data.tradingview.com/socket.io/websocket"
-            ws_instance = websocket.WebSocketApp(
-                ws_url,
-                on_open=on_open,
-                on_message=on_message,
-                on_error=on_error,
-                on_close=on_close,
-                header={
-                    'Origin': 'https://www.tradingview.com',
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                }
-            )
-            
-            ws_instance.run_forever(ping_interval=30, ping_timeout=10)
-            
-        except Exception as e:
-            print(f"WebSocket error: {e}", flush=True)
-        
-        ws_connected = False
-        print("Reconnecting in 5 seconds...", flush=True)
-        time.sleep(5)
-
 def fetch_from_tradingview():
-    """Get prices from WebSocket cache or scanner API"""
-    global ws_prices, ws_connected
-    
-    results = []
-    
-    # Check WebSocket cache first (for real-time data)
-    if ws_connected and ws_prices:
-        for key, asset in ASSETS.items():
-            tv_symbol = asset['tv_symbol']
-            if tv_symbol in ws_prices:
-                data = ws_prices[tv_symbol]
-                results.append({
-                    'symbol': asset['symbol'],
-                    'regularMarketPrice': data['price'],
-                    'regularMarketChange': data['change'],
-                    'regularMarketChangePercent': data['change_pct'],
-                })
-        
-        if len(results) >= 4:
-            print(f"Using WebSocket data: {len(results)} prices", flush=True)
-            return {'quoteResponse': {'result': results}}
-    
-    # Fallback to scanner API
-    print("Using scanner API fallback...", flush=True)
+    """Fetch prices from TradingView scanner API"""
     symbols = [asset['tv_symbol'] for asset in ASSETS.values()]
     url = "https://scanner.tradingview.com/global/scan"
     
@@ -254,7 +78,7 @@ def fetch_from_tradingview():
         response = requests.post(
             url,
             json=payload,
-            timeout=15,
+            timeout=5,
             headers={
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                 'Content-Type': 'application/json',
@@ -280,42 +104,29 @@ def fetch_from_tradingview():
                             })
                             break
             
-            print(f"Scanner API: {len(results)} prices", flush=True)
-        else:
-            print(f"Scanner API HTTP {response.status_code}", flush=True)
+            if results:
+                return {'quoteResponse': {'result': results}}
                             
     except Exception as e:
-        print(f"Scanner API error: {e}", flush=True)
+        print(f"TradingView error: {e}", flush=True)
     
-    if results:
-        return {'quoteResponse': {'result': results}}
     return None
 
 def update_price_cache():
     """Update the price cache from TradingView"""
     global price_cache
     
-    from datetime import datetime
-    timestamp = datetime.now().strftime("%H:%M:%S")
-    
-    # Fetch from TradingView
-    print(f"[{timestamp}] Fetching from TradingView...", flush=True)
     data = fetch_from_tradingview()
     
     if data and data.get('quoteResponse', {}).get('result'):
-        num_prices = len(data['quoteResponse']['result'])
         with price_cache['lock']:
             price_cache['data'] = data
             price_cache['last_update'] = time.time()
-        print(f"[{timestamp}] Updated {num_prices} prices from TradingView", flush=True)
         return True
-    else:
-        print(f"[{timestamp}] Failed to fetch from TradingView, keeping last data", flush=True)
-        return False
+    return False
 
 def background_price_updater():
     """Background thread that continuously updates prices 24/7"""
-    global ws_connected
     consecutive_failures = 0
     
     while True:
@@ -323,41 +134,32 @@ def background_price_updater():
             success = update_price_cache()
             if success:
                 consecutive_failures = 0
-                # Fast polling for real-time feel
-                time.sleep(0.01)  # 10ms refresh
+                time.sleep(1)  # Update every 1 second
             else:
                 consecutive_failures += 1
-                wait_time = min(2 * consecutive_failures, 10)
-                time.sleep(wait_time)
+                time.sleep(min(5 * consecutive_failures, 30))
                 
         except Exception as e:
             consecutive_failures += 1
-            time.sleep(5)
+            time.sleep(10)
             
         if consecutive_failures >= 10:
             consecutive_failures = 0
-            time.sleep(10)
+            time.sleep(30)
 
 def start_background_updater():
-    """Start the background price updater and WebSocket connection"""
+    """Start the background price updater"""
     global _updater_started
     if not _updater_started:
         _updater_started = True
         
-        # First, get initial prices via scanner API (fast, reliable)
-        print("Fetching initial prices via scanner API...", flush=True)
+        print("Fetching initial prices from TradingView...", flush=True)
         update_price_cache()
         
-        # Start WebSocket connection for real-time data
-        print("Starting TradingView WebSocket connection...", flush=True)
-        ws_thread = threading.Thread(target=start_websocket, daemon=True)
-        ws_thread.start()
-        
-        # Start price cache updater
         print("Starting background price updater...", flush=True)
         updater = threading.Thread(target=background_price_updater, daemon=True)
         updater.start()
-        print("All background services started", flush=True)
+        print("Background updater started - updates every 1 second", flush=True)
 
 # Start updater when app is imported (for gunicorn)
 start_background_updater()
