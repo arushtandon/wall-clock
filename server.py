@@ -155,40 +155,53 @@ def update_price_cache():
     """Update the price cache from investing.com"""
     global price_cache
     
-    print("Fetching from investing.com API...", flush=True)
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%H:%M:%S")
     
-    # Try API first
-    data = fetch_from_investing_api()
-    
-    # If API fails, try scraping
-    if not data or len(data.get('quoteResponse', {}).get('result', [])) < 4:
-        print("API incomplete, trying scrape...", flush=True)
-        scrape_data = fetch_from_investing_scrape()
-        if scrape_data:
-            # Merge results
-            if data:
-                existing = {r['symbol']: r for r in data['quoteResponse']['result']}
-                for r in scrape_data['quoteResponse']['result']:
-                    if r['symbol'] not in existing:
-                        existing[r['symbol']] = r
-                data = {'quoteResponse': {'result': list(existing.values())}}
-            else:
-                data = scrape_data
+    # Try scraping (API is blocked by Cloudflare)
+    data = fetch_from_investing_scrape()
     
     if data and data.get('quoteResponse', {}).get('result'):
+        num_prices = len(data['quoteResponse']['result'])
         with price_cache['lock']:
             price_cache['data'] = data
             price_cache['last_update'] = time.time()
-        print(f"Updated {len(data['quoteResponse']['result'])} prices", flush=True)
+        print(f"[{timestamp}] Updated {num_prices} prices", flush=True)
+        return True
+    else:
+        print(f"[{timestamp}] Failed to fetch prices, keeping last data", flush=True)
+        return False
 
 def background_price_updater():
-    """Background thread that continuously updates prices"""
+    """Background thread that continuously updates prices 24/7"""
+    consecutive_failures = 0
+    max_failures = 10
+    
     while True:
         try:
-            update_price_cache()
+            success = update_price_cache()
+            if success:
+                consecutive_failures = 0
+                time.sleep(3)  # Normal: update every 3 seconds
+            else:
+                consecutive_failures += 1
+                # Exponential backoff on failures (max 60 seconds)
+                wait_time = min(3 * (2 ** consecutive_failures), 60)
+                print(f"  Retry in {wait_time}s (failure #{consecutive_failures})", flush=True)
+                time.sleep(wait_time)
+                
         except Exception as e:
+            consecutive_failures += 1
             print(f"Update error: {e}", flush=True)
-        time.sleep(3)  # Update every 3 seconds to avoid rate limiting
+            # Wait before retrying
+            wait_time = min(3 * (2 ** consecutive_failures), 60)
+            time.sleep(wait_time)
+            
+        # Reset failure count periodically to recover from temporary issues
+        if consecutive_failures >= max_failures:
+            print("Too many failures, resetting and continuing...", flush=True)
+            consecutive_failures = 0
+            time.sleep(30)
 
 def start_background_updater():
     """Start the background price updater if not already running"""
