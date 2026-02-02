@@ -174,23 +174,30 @@ def run_ibkr_connection():
             contracts['sp500_futures'] = Future('ES', front_month, 'CME')
             contracts['nasdaq_futures'] = Future('NQ', front_month, 'CME')
             
-            # GIFT Nifty - NIFTY 50 Index Futures via GIFT CONNECT
-            # Use continuous contract format for simpler access
+            # GIFT Nifty - NIFTY 50 Index Futures via GIFT CONNECT (NSE IFSC)
+            # Try multiple approaches to find the contract
+            nifty_found = False
+            
+            # Approach 1: Search for NIFTY futures on SGX
             try:
-                nifty_contract = Future(symbol='NIFTY', lastTradeDateOrContractMonth='', exchange='SGX')
+                from ib_insync import Contract
+                nifty_contract = Contract()
+                nifty_contract.symbol = 'NIFTY'
+                nifty_contract.secType = 'FUT'
+                nifty_contract.exchange = 'SGX'
                 nifty_contract.currency = 'USD'
-                # Try to qualify to find the front month automatically
-                qualified_nifty = ib.qualifyContracts(nifty_contract)
-                if qualified_nifty:
-                    contracts['nifty_futures'] = qualified_nifty[0]
-                    print(f"Nifty contract qualified: {qualified_nifty[0]}", flush=True)
-                else:
-                    # Fallback: try with explicit month
-                    nifty_contract = Future('NIFTY', front_month, 'SGX')
-                    nifty_contract.currency = 'USD'
-                    contracts['nifty_futures'] = nifty_contract
+                
+                matches = ib.reqContractDetails(nifty_contract)
+                if matches:
+                    # Get the front month contract
+                    contracts['nifty_futures'] = matches[0].contract
+                    nifty_found = True
+                    print(f"Nifty found: {matches[0].contract}", flush=True)
             except Exception as e:
-                print(f"Nifty contract error: {e}", flush=True)
+                print(f"Nifty search error: {e}", flush=True)
+            
+            if not nifty_found:
+                print("Nifty contract not found - skipping", flush=True)
             
             # Qualify and subscribe (use delayed data if real-time not available)
             tickers = {}
