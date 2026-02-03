@@ -26,13 +26,15 @@ OverrideTwsApiPort=4001
 ReadOnlyApi=yes
 
 # =============================================================================
-# Auto-Accept Dialogs
+# Auto-Accept Dialogs (reduces prompts so IBC can stay logged in)
 # =============================================================================
 AcceptNonBrokerageAccountWarning=yes
 AcceptBidAskLastSizeDisplayBasisConfig=accept
-ExistingSessionDetectedAction=primary
+ExistingSessionDetectedAction=primaryoverride
 DismissPasswordExpiryWarning=yes
 DismissNSEComplianceNotice=yes
+AllowBlindTrading=yes
+ClosedownAt=
 
 # =============================================================================
 # Logging

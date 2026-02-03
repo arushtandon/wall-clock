@@ -2,6 +2,26 @@
 
 This keeps IB Gateway running and, with IBC, logs in automatically so prices run 24/7.
 
+---
+
+## Avoid 2FA / Re-Authentication (Do This First)
+
+To avoid having to log in or complete 2FA again after setup:
+
+1. **Turn off two-factor authentication (2FA) for API login**
+   - Log in at **https://www.interactivebrokers.com** → **Account Management**
+   - Go to **Settings** → **User Settings** → **Security** → **Two-Factor Authentication**
+   - **Disable** 2FA, or set it so that **"IB Key" / mobile 2FA is not required** for IB Gateway/API (if that option exists in your region).
+   - Without 2FA, IBC can log in with just username + password in `config.ini`, so no manual step after reboot.
+
+2. **Optional: Trust this "device"**
+   - If IBKR has a "Remember this device" or "Trust this device" on the login screen, use it once when you log in via noVNC. That can reduce how often they ask for re-auth.
+
+3. **Keep the gateway running**
+   - Use the systemd service below so the gateway (and IBC) only restart when necessary. Fewer restarts = fewer logins.
+
+**Note:** IBKR may still require a password change or re-login once in a long while for security. When that happens, use noVNC once to complete it; after that, IBC will resume auto-login.
+
 ## Option A: Auto-login with IBC (recommended)
 
 IBC stores your credentials and logs in automatically when the gateway starts or restarts.
