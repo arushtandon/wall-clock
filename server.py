@@ -67,25 +67,27 @@ ASSETS = {
 }
 
 def get_front_month():
-    """Get the front month contract date (YYYYMM format)"""
+    """Get the front month contract date (YYYYMM) for quarterly futures (ES, NQ, GC, SI)."""
     from datetime import datetime, timedelta
     now = datetime.now()
-    # Futures roll quarterly (Mar, Jun, Sep, Dec)
-    month = now.month
-    year = now.year
-    # Find next quarterly month
+    month, year = now.month, now.year
     quarterly_months = [3, 6, 9, 12]
     for qm in quarterly_months:
         if month <= qm:
             if now.day > 15 and month == qm:
-                # Past rollover, use next quarter
                 idx = quarterly_months.index(qm)
-                if idx < 3:
-                    return f"{year}{quarterly_months[idx+1]:02d}"
-                else:
-                    return f"{year+1}03"
+                return f"{year}{quarterly_months[idx+1]:02d}" if idx < 3 else f"{year+1}03"
             return f"{year}{qm:02d}"
     return f"{year+1}03"
+
+
+def get_nifty_front_month():
+    """Get front month for Nifty (monthly expiry, last Thursday of month). Returns YYYYMM."""
+    from datetime import datetime
+    now = datetime.now()
+    year, month = now.year, now.month
+    # Current month is front until last Thursday has passed
+    return f"{year}{month:02d}"
 
 def update_price_cache_from_live():
     """Update the Flask cache from live prices"""
@@ -174,28 +176,59 @@ def run_ibkr_connection():
             contracts['sp500_futures'] = Future('ES', front_month, 'CME')
             contracts['nasdaq_futures'] = Future('NQ', front_month, 'CME')
             
-            # GIFT Nifty - NIFTY 50 Index Futures via GIFT CONNECT (NSE IFSC)
-            # Try multiple approaches to find the contract
+            # GIFT Nifty - front month (Feb, Mar, ...), auto-roll after expiry
+            nifty_front = get_nifty_front_month()  # e.g. "202602"
+            print(f"Nifty front month (target): {nifty_front}", flush=True)
             nifty_found = False
-            
-            # Approach 1: Search for NIFTY futures on SGX
             try:
-                from ib_insync import Contract
-                nifty_contract = Contract()
-                nifty_contract.symbol = 'NIFTY'
-                nifty_contract.secType = 'FUT'
-                nifty_contract.exchange = 'SGX'
-                nifty_contract.currency = 'USD'
-                
-                matches = ib.reqContractDetails(nifty_contract)
+                nifty_search = Contract()
+                nifty_search.symbol = 'NIFTY'
+                nifty_search.secType = 'FUT'
+                nifty_search.exchange = 'SGX'
+                nifty_search.currency = 'USD'
+                matches = ib.reqContractDetails(nifty_search)
                 if matches:
-                    # Get the front month contract
-                    contracts['nifty_futures'] = matches[0].contract
-                    nifty_found = True
-                    print(f"Nifty found: {matches[0].contract}", flush=True)
+                    # Normalize contract month to YYYYMM for comparison
+                    def norm_month(c):
+                        raw = (getattr(c.contract, 'lastTradeDateOrContractMonth', '') or '').strip().replace(' ', '')
+                        if len(raw) >= 6 and raw[:6].isdigit():
+                            return raw[:6]
+                        # e.g. "202602" or "FEB26" -> try to parse
+                        from datetime import datetime
+                        try:
+                            if raw.isdigit():
+                                return raw[:6]
+                            # "FEB26" style
+                            months = {'JAN':1,'FEB':2,'MAR':3,'APR':4,'MAY':5,'JUN':6,'JUL':7,'AUG':8,'SEP':9,'OCT':10,'NOV':11,'DEC':12}
+                            for k, v in months.items():
+                                if raw.upper().startswith(k):
+                                    yr = raw[len(k):].strip()
+                                    if len(yr) == 2:
+                                        yr = '20' + yr
+                                    return f"{yr}{v:02d}"
+                        except Exception:
+                            pass
+                        return raw[:6] if raw else '999999'
+                    matches_sorted = sorted(matches, key=lambda m: norm_month(m))
+                    # Pick contract matching current front month, or nearest future
+                    for m in matches_sorted:
+                        cm = norm_month(m)
+                        if cm == nifty_front:
+                            contracts['nifty_futures'] = m.contract
+                            nifty_found = True
+                            print(f"Nifty using front month: {m.contract} ({getattr(m.contract, 'lastTradeDateOrContractMonth', '')})", flush=True)
+                            break
+                        if cm > nifty_front:
+                            contracts['nifty_futures'] = m.contract
+                            nifty_found = True
+                            print(f"Nifty using next available: {m.contract} ({getattr(m.contract, 'lastTradeDateOrContractMonth', '')})", flush=True)
+                            break
+                    if not nifty_found and matches_sorted:
+                        contracts['nifty_futures'] = matches_sorted[0].contract
+                        nifty_found = True
+                        print(f"Nifty using first listed: {matches_sorted[0].contract}", flush=True)
             except Exception as e:
-                print(f"Nifty search error: {e}", flush=True)
-            
+                print(f"Nifty error: {e}", flush=True)
             if not nifty_found:
                 print("Nifty contract not found - skipping", flush=True)
             
@@ -205,8 +238,8 @@ def run_ibkr_connection():
                 try:
                     qualified = ib.qualifyContracts(contract)
                     if qualified:
-                        # Request real-time data, fallback to delayed if not subscribed
-                        ib.reqMarketDataType(4)  # 4 = delayed-frozen (best available)
+                        # Real-time (1) or best available (4)
+                        ib.reqMarketDataType(1)  # 1 = live
                         ticker = ib.reqMktData(contract, '', False, False)
                         tickers[key] = ticker
                         print(f"Subscribed: {key} -> {contract}", flush=True)
@@ -217,9 +250,15 @@ def run_ibkr_connection():
             
             print(f"Streaming {len(tickers)} symbols...", flush=True)
             
-            # Process updates
+            # Process updates: reconnect periodically to refresh contracts (e.g. after Nifty expiry)
+            reconnect_interval = 6 * 3600  # 6 hours
+            stale_threshold = 5 * 60      # 5 min without updates = force reconnect
+            last_update_time = time.time()
+            loop_start = time.time()
+            
             while ib.isConnected():
                 ib.sleep(0.1)  # Process events
+                now = time.time()
                 
                 for key, ticker in tickers.items():
                     price = None
@@ -231,6 +270,7 @@ def run_ibkr_connection():
                         price = (ticker.bid + ticker.ask) / 2
                     
                     if price and price > 0:
+                        last_update_time = now
                         prev_close = ticker.close if ticker.close and ticker.close > 0 else price
                         change = price - prev_close
                         change_pct = (change / prev_close * 100) if prev_close else 0
@@ -243,6 +283,15 @@ def run_ibkr_connection():
                                 'change_pct': change_pct,
                             }
                             update_price_cache_from_live()
+                
+                # Periodic reconnect to refresh contracts (roll to next month after expiry)
+                if (now - loop_start) >= reconnect_interval:
+                    print("Periodic reconnect to refresh contracts...", flush=True)
+                    break
+                # Reconnect if no updates for too long (connection may be stale)
+                if (now - last_update_time) >= stale_threshold and price_cache['last_update']:
+                    print("No price updates for 5 min - reconnecting...", flush=True)
+                    break
             
             print("IB connection lost", flush=True)
             ib_connected = False
