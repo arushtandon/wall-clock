@@ -158,7 +158,7 @@ def run_ibkr_connection():
             from ib_insync import Contract
             contracts = {}
             
-            # Gold futures (COMEX) - standard contract
+            # Gold: GC (COMEX Gold futures, 100 oz), front month = next quarterly (Mar/Jun/Sep/Dec)
             gold_contract = Future('GC', front_month, 'COMEX')
             gold_contract.multiplier = '100'
             contracts['gold'] = gold_contract
@@ -174,8 +174,8 @@ def run_ibkr_connection():
             contracts['nasdaq_futures'] = Future('NQ', front_month, 'CME')
             contracts['sp500_futures'] = Future('ES', front_month, 'CME')
             
-            # GIFT Nifty - front month (Feb, Mar, ...), auto-roll after expiry
-            nifty_front = get_nifty_front_month()  # e.g. "202602"
+            # GIFT Nifty - strict front month (Feb now), auto-roll to next month after expiry
+            nifty_front = get_nifty_front_month()  # e.g. "202602" in February
             print(f"Nifty front month (target): {nifty_front}", flush=True)
             nifty_found = False
             try:
@@ -186,17 +186,13 @@ def run_ibkr_connection():
                 nifty_search.currency = 'USD'
                 matches = ib.reqContractDetails(nifty_search)
                 if matches:
-                    # Normalize contract month to YYYYMM for comparison
                     def norm_month(c):
                         raw = (getattr(c.contract, 'lastTradeDateOrContractMonth', '') or '').strip().replace(' ', '')
                         if len(raw) >= 6 and raw[:6].isdigit():
                             return raw[:6]
-                        # e.g. "202602" or "FEB26" -> try to parse
-                        from datetime import datetime
                         try:
                             if raw.isdigit():
                                 return raw[:6]
-                            # "FEB26" style
                             months = {'JAN':1,'FEB':2,'MAR':3,'APR':4,'MAY':5,'JUN':6,'JUL':7,'AUG':8,'SEP':9,'OCT':10,'NOV':11,'DEC':12}
                             for k, v in months.items():
                                 if raw.upper().startswith(k):
@@ -207,24 +203,29 @@ def run_ibkr_connection():
                         except Exception:
                             pass
                         return raw[:6] if raw else '999999'
+                    # Sort by contract month ascending (Jan, Feb, Mar...)
                     matches_sorted = sorted(matches, key=lambda m: norm_month(m))
-                    # Pick contract matching current front month, or nearest future
+                    available_months = [norm_month(m) for m in matches_sorted]
+                    print(f"Nifty available months: {available_months}", flush=True)
+                    # 1) Prefer exact current month (e.g. 202602 for Feb)
                     for m in matches_sorted:
-                        cm = norm_month(m)
-                        if cm == nifty_front:
+                        if norm_month(m) == nifty_front:
                             contracts['nifty_futures'] = m.contract
                             nifty_found = True
-                            print(f"Nifty using front month: {m.contract} ({getattr(m.contract, 'lastTradeDateOrContractMonth', '')})", flush=True)
+                            print(f"Nifty using Feb/current month: {m.contract} ({getattr(m.contract, 'lastTradeDateOrContractMonth', '')})", flush=True)
                             break
-                        if cm > nifty_front:
-                            contracts['nifty_futures'] = m.contract
-                            nifty_found = True
-                            print(f"Nifty using next available: {m.contract} ({getattr(m.contract, 'lastTradeDateOrContractMonth', '')})", flush=True)
-                            break
+                    # 2) Only if no current month (e.g. after expiry), use next month
+                    if not nifty_found:
+                        for m in matches_sorted:
+                            if norm_month(m) > nifty_front:
+                                contracts['nifty_futures'] = m.contract
+                                nifty_found = True
+                                print(f"Nifty rolled to next month: {m.contract} ({getattr(m.contract, 'lastTradeDateOrContractMonth', '')})", flush=True)
+                                break
                     if not nifty_found and matches_sorted:
                         contracts['nifty_futures'] = matches_sorted[0].contract
                         nifty_found = True
-                        print(f"Nifty using first listed: {matches_sorted[0].contract}", flush=True)
+                        print(f"Nifty fallback: {matches_sorted[0].contract}", flush=True)
             except Exception as e:
                 print(f"Nifty error: {e}", flush=True)
             if not nifty_found:
@@ -371,6 +372,19 @@ def api_status():
         'ib_connected': ib_connected,
         'prices_count': len(live_prices),
         'last_update': price_cache['last_update']
+    })
+
+@app.route('/api/sources')
+def api_sources():
+    """Which IBKR tickers/contracts we use for each asset."""
+    return jsonify({
+        'gold': 'GC (COMEX Gold futures, 100 oz, front quarterly month)',
+        'silver': 'SI (COMEX Silver futures, 5000 oz, front quarterly month)',
+        'sp500': 'SPX (CBOE index)',
+        'nasdaq': 'NQ (CME Nasdaq 100 E-mini futures)',
+        'sp500_futures': 'ES (CME E-mini S&P 500 futures)',
+        'nasdaq_futures': 'NQ (CME Nasdaq 100 E-mini futures)',
+        'nifty_futures': 'NIFTY (GIFT Nifty, SGX, front month = current month, auto-roll after expiry)',
     })
 
 def get_local_ip():
