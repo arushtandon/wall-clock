@@ -170,11 +170,9 @@ def run_ibkr_connection():
             
             # Indices
             contracts['sp500'] = Index('SPX', 'CBOE', 'USD')
-            contracts['nasdaq'] = Index('NDX', 'NASDAQ', 'USD')
-            
-            # Futures
-            contracts['sp500_futures'] = Future('ES', front_month, 'CME')
+            # Nasdaq: NQ futures (reliable live); we'll copy NQ price to 'nasdaq' in the loop
             contracts['nasdaq_futures'] = Future('NQ', front_month, 'CME')
+            contracts['sp500_futures'] = Future('ES', front_month, 'CME')
             
             # GIFT Nifty - front month (Feb, Mar, ...), auto-roll after expiry
             nifty_front = get_nifty_front_month()  # e.g. "202602"
@@ -232,14 +230,13 @@ def run_ibkr_connection():
             if not nifty_found:
                 print("Nifty contract not found - skipping", flush=True)
             
-            # Qualify and subscribe (use delayed data if real-time not available)
+            # Qualify and subscribe
             tickers = {}
+            ib.reqMarketDataType(1)  # 1 = live (use 3 for delayed if no subscription)
             for key, contract in contracts.items():
                 try:
                     qualified = ib.qualifyContracts(contract)
                     if qualified:
-                        # Real-time (1) or best available (4)
-                        ib.reqMarketDataType(1)  # 1 = live
                         ticker = ib.reqMktData(contract, '', False, False)
                         tickers[key] = ticker
                         print(f"Subscribed: {key} -> {contract}", flush=True)
@@ -247,6 +244,9 @@ def run_ibkr_connection():
                         print(f"Could not qualify: {key}", flush=True)
                 except Exception as e:
                     print(f"Error with {key}: {e}", flush=True)
+            # If Nifty didn't qualify, try delayed data type for next connection
+            if 'nifty_futures' not in tickers and contracts.get('nifty_futures'):
+                print("Nifty: try enabling delayed market data in IBKR for SGX", flush=True)
             
             print(f"Streaming {len(tickers)} symbols...", flush=True)
             
@@ -261,13 +261,14 @@ def run_ibkr_connection():
                 now = time.time()
                 
                 for key, ticker in tickers.items():
+                    # Prefer live: bid/ask mid (best for futures), then last, then close
                     price = None
-                    if ticker.last and ticker.last > 0:
-                        price = ticker.last
-                    elif ticker.close and ticker.close > 0:
-                        price = ticker.close
-                    elif ticker.bid and ticker.bid > 0 and ticker.ask and ticker.ask > 0:
+                    if ticker.bid and ticker.bid > 0 and ticker.ask and ticker.ask > 0:
                         price = (ticker.bid + ticker.ask) / 2
+                    if (price is None or price <= 0) and ticker.last and ticker.last > 0:
+                        price = ticker.last
+                    if (price is None or price <= 0) and ticker.close and ticker.close > 0:
+                        price = ticker.close
                     
                     if price and price > 0:
                         last_update_time = now
@@ -277,11 +278,11 @@ def run_ibkr_connection():
                         
                         old_price = live_prices.get(key, {}).get('price', 0)
                         if abs(price - old_price) > 0.0001:
-                            live_prices[key] = {
-                                'price': price,
-                                'change': change,
-                                'change_pct': change_pct,
-                            }
+                            data = {'price': price, 'change': change, 'change_pct': change_pct}
+                            live_prices[key] = data
+                            # Nasdaq row shows NQ (nasdaq_futures) price
+                            if key == 'nasdaq_futures':
+                                live_prices['nasdaq'] = data
                             update_price_cache_from_live()
                 
                 # Periodic reconnect to refresh contracts (roll to next month after expiry)
