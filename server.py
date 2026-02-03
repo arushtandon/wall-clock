@@ -34,6 +34,23 @@ IB_HOST = '127.0.0.1'
 IB_PORTS = [4001, 4002, 7496, 7497]  # Common IB Gateway ports
 IB_CLIENT_ID = 1
 
+# ============== Re-auth notification (no need to check noVNC/IBKR until you get this) ==============
+NOTIFY_THROTTLE_HOURS = float(os.environ.get('NOTIFY_THROTTLE_HOURS', '24'))  # 24 = daily, 168 = weekly
+NOTIFY_THROTTLE_SEC = int(NOTIFY_THROTTLE_HOURS * 3600)
+FAILURES_BEFORE_NOTIFY = 3       # After this many connection failures, send notification
+_last_reauth_notification_time = 0
+_consecutive_failures = 0
+
+# Optional: set in environment to get automatic alerts when login is required
+NOTIFY_EMAIL = os.environ.get('NOTIFY_EMAIL', '')           # e.g. you@example.com
+SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.gmail.com')
+SMTP_PORT = int(os.environ.get('SMTP_PORT', '587'))
+SMTP_USER = os.environ.get('SMTP_USER', '')
+SMTP_PASS = os.environ.get('SMTP_PASS', '')
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '')
+NOTIFY_NOVNC_URL = os.environ.get('NOTIFY_NOVNC_URL', 'https://safronliveprices.duckdns.org/novnc/vnc.html')
+
 # Asset configuration
 ASSETS = {
     'silver': {
@@ -89,6 +106,47 @@ def get_nifty_front_month():
     # Current month is front until last Thursday has passed
     return f"{year}{month:02d}"
 
+
+def send_reauth_notification():
+    """Send one notification that IBKR re-auth is required (throttled to once per NOTIFY_THROTTLE_SEC)."""
+    global _last_reauth_notification_time
+    now = time.time()
+    if now - _last_reauth_notification_time < NOTIFY_THROTTLE_SEC:
+        return
+    _last_reauth_notification_time = now
+    msg = (
+        "IBKR re-authentication required. "
+        "Prices have stopped. Log in via noVNC (no need to open IBKR website): %s"
+    ) % NOTIFY_NOVNC_URL
+    # Telegram
+    if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
+        try:
+            import urllib.request
+            import urllib.parse
+            url = "https://api.telegram.org/bot%s/sendMessage?chat_id=%s&text=%s" % (
+                TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, urllib.parse.quote(msg)
+            )
+            urllib.request.urlopen(url, timeout=10)
+            print("Sent Telegram re-auth notification", flush=True)
+        except Exception as e:
+            print("Telegram notify failed: %s" % e, flush=True)
+    # Email
+    if NOTIFY_EMAIL and SMTP_USER and SMTP_PASS:
+        try:
+            import smtplib
+            from email.mime.text import MIMEText
+            m = MIMEText(msg)
+            m['Subject'] = "IBKR login required - Wall Clock"
+            m['From'] = SMTP_USER
+            m['To'] = NOTIFY_EMAIL
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as s:
+                s.starttls()
+                s.login(SMTP_USER, SMTP_PASS)
+                s.sendmail(SMTP_USER, NOTIFY_EMAIL, m.as_string())
+            print("Sent email re-auth notification", flush=True)
+        except Exception as e:
+            print("Email notify failed: %s" % e, flush=True)
+
 def update_price_cache_from_live():
     """Update the Flask cache from live prices"""
     global live_prices, price_cache
@@ -111,7 +169,7 @@ def update_price_cache_from_live():
 
 def run_ibkr_connection():
     """Run IBKR connection using ib_insync for real-time prices"""
-    global live_prices, ib_connected
+    global live_prices, ib_connected, _consecutive_failures
     
     import asyncio
     import socket
@@ -138,6 +196,9 @@ def run_ibkr_connection():
                     break
             
             if not connected_port:
+                _consecutive_failures += 1
+                if _consecutive_failures >= FAILURES_BEFORE_NOTIFY:
+                    send_reauth_notification()
                 print(f"IB Gateway not reachable. Waiting 10 seconds...", flush=True)
                 time.sleep(10)
                 continue
@@ -148,6 +209,7 @@ def run_ibkr_connection():
             print(f"Connecting to IB Gateway on port {connected_port}...", flush=True)
             ib.connect(IB_HOST, connected_port, clientId=IB_CLIENT_ID, timeout=20)
             ib_connected = True
+            _consecutive_failures = 0  # Reset so next time we need re-auth we can notify again
             print("Connected to Interactive Brokers!", flush=True)
             
             # Get front month for futures
@@ -301,6 +363,10 @@ def run_ibkr_connection():
         except Exception as e:
             print(f"IBKR error: {type(e).__name__}: {e}", flush=True)
             ib_connected = False
+        
+        _consecutive_failures += 1
+        if _consecutive_failures >= FAILURES_BEFORE_NOTIFY:
+            send_reauth_notification()
         
         # Cleanup
         if ib:

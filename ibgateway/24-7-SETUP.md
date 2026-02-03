@@ -75,8 +75,79 @@ If you don’t install IBC:
 
 ---
 
+---
+
+## Automatic notifications (no need to check noVNC or IBKR)
+
+You do **not** need to log in to noVNC or IBKR until you get a notification.
+
+1. **When re-auth is required:** If the app loses connection to IB Gateway (e.g. session expired), it will send **one** automatic notification (throttled so you’re not spammed) to Telegram and/or email: *"IBKR re-authentication required. Log in via noVNC: …"* Then log in once via the link in the message; no need to open the IBKR website. Default: at most one alert per 24 hours. For **weekly-only** alerts, set `NOTIFY_THROTTLE_HOURS=168` in the same place as the other env vars.
+
+2. **Weekly reminder (optional):** Run the weekly reminder once per week so you get a single reminder if something is wrong. Set the same env vars as below, then add a cron job.
+
+### Set up Telegram (easiest) or email
+
+On the **Vultr server**, set environment variables for the wallclock service. Create a drop-in or use systemd environment:
+
+```bash
+# Option A: Telegram (recommended - free, instant)
+# 1. Create a bot: message @BotFather on Telegram, send /newbot, get token
+# 2. Get your chat ID: message your bot, then open https://api.telegram.org/bot<TOKEN>/getUpdates
+mkdir -p /etc/systemd/system/wallclock.service.d
+cat > /etc/systemd/system/wallclock.service.d/notify.conf << 'EOF'
+[Service]
+Environment=TELEGRAM_BOT_TOKEN=your_bot_token_here
+Environment=TELEGRAM_CHAT_ID=your_chat_id_here
+Environment=NOTIFY_NOVNC_URL=https://safronliveprices.duckdns.org/novnc/vnc.html
+Environment=NOTIFY_THROTTLE_HOURS=168
+EOF
+# NOTIFY_THROTTLE_HOURS=168 = send at most one "re-auth required" per week
+systemctl daemon-reload
+systemctl restart wallclock
+```
+
+```bash
+# Option B: Email (e.g. Gmail)
+# Use an App Password, not your normal password: Google Account → Security → App passwords
+mkdir -p /etc/systemd/system/wallclock.service.d
+cat > /etc/systemd/system/wallclock.service.d/notify.conf << 'EOF'
+[Service]
+Environment=NOTIFY_EMAIL=you@example.com
+Environment=SMTP_HOST=smtp.gmail.com
+Environment=SMTP_PORT=587
+Environment=SMTP_USER=you@gmail.com
+Environment=SMTP_PASS=your_app_password
+Environment=NOTIFY_NOVNC_URL=https://safronliveprices.duckdns.org/novnc/vnc.html
+Environment=NOTIFY_THROTTLE_HOURS=168
+EOF
+systemctl daemon-reload
+systemctl restart wallclock
+```
+
+### Weekly reminder (once per week)
+
+Run the reminder script once per week (e.g. Sunday 9:00). It sends one message only if prices look stale.
+
+```bash
+# Make script executable
+chmod +x /root/wall-clock/ibgateway/weekly-reminder.py
+
+# Load the same env vars (or put them in /etc/environment)
+export TELEGRAM_BOT_TOKEN=...
+export TELEGRAM_CHAT_ID=...
+
+# Add cron: every Sunday at 9:00
+crontab -e
+# Add this line (use your actual path and env):
+0 9 * * 0 cd /root/wall-clock && TELEGRAM_BOT_TOKEN=xxx TELEGRAM_CHAT_ID=yyy /usr/bin/python3 ibgateway/weekly-reminder.py
+```
+
+Result: you only log in when you receive the automatic “re-auth required” alert or the weekly reminder. No need to check noVNC or IBKR otherwise.
+
+---
+
 ## Notes
 
-- **IBKR re-auth:** IBKR may still require periodic re-authentication (e.g. 2FA or password). When that happens, use noVNC to complete it; IBC will handle normal restarts.
+- **IBKR re-auth:** IBKR may still require periodic re-authentication. When you get the notification, log in once via the noVNC link; no need to open the IBKR website separately.
 - **Port 4001:** The wall-clock app connects to IB Gateway on port 4001. Keep this in IBC and in IB Gateway API settings.
 - **Logs:** `journalctl -u ibgateway -f` and `tail -f /var/log/ibgateway.log`
