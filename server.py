@@ -84,8 +84,8 @@ ASSETS = {
 }
 
 def get_front_month():
-    """Get the front month contract date (YYYYMM) for quarterly futures (ES, NQ, GC, SI)."""
-    from datetime import datetime, timedelta
+    """Get the front month contract date (YYYYMM) for quarterly futures (ES, NQ)."""
+    from datetime import datetime
     now = datetime.now()
     month, year = now.month, now.year
     quarterly_months = [3, 6, 9, 12]
@@ -96,6 +96,30 @@ def get_front_month():
                 return f"{year}{quarterly_months[idx+1]:02d}" if idx < 3 else f"{year+1}03"
             return f"{year}{qm:02d}"
     return f"{year+1}03"
+
+
+def get_gc_contract_month():
+    """GC (Gold) current continuous contract: Apr, Jun, Aug, Oct, Dec. April in Jan–Apr, then auto-roll."""
+    from datetime import datetime
+    now = datetime.now()
+    y, m = now.year, now.month
+    months = [4, 6, 8, 10, 12]  # continuous cycle
+    for mo in months:
+        if mo >= m:
+            return f"{y}{mo:02d}"
+    return f"{y}04"  # Jan–Mar: current year April
+
+
+def get_si_contract_month():
+    """SI (Silver) contract months: Mar, May, Sep, Dec. Auto-roll to next when current expires."""
+    from datetime import datetime
+    now = datetime.now()
+    y, m = now.year, now.month
+    months = [3, 5, 9, 12]  # SI cycle
+    for mo in months:
+        if mo >= m:
+            return f"{y}{mo:02d}"
+    return f"{y+1}{months[0]:02d}"
 
 
 def get_nifty_front_month():
@@ -212,23 +236,38 @@ def run_ibkr_connection():
             _consecutive_failures = 0  # Reset so next time we need re-auth we can notify again
             print("Connected to Interactive Brokers!", flush=True)
             
-            # Get front month for futures
+            # Front month for ES/NQ; GC and SI use their own cycles
             front_month = get_front_month()
-            print(f"Using front month: {front_month}", flush=True)
+            print(f"ES/NQ front month: {front_month}", flush=True)
+            print(f"GC (Gold) contract: {get_gc_contract_month()}, SI (Silver) contract: {get_si_contract_month()}", flush=True)
             
-            # Create contracts
+            # Create contracts (Contract used for GC/SI explicit month)
             from ib_insync import Contract
             contracts = {}
             
-            # Gold: GC (COMEX Gold futures, 100 oz), front month = next quarterly (Mar/Jun/Sep/Dec)
-            gold_contract = Future('GC', front_month, 'COMEX')
+            # Gold: GC (COMEX), 100 oz. Current continuous = Apr, Jun, Aug, Oct, Dec
+            gc_month = get_gc_contract_month()
+            gold_contract = Contract()
+            gold_contract.symbol = 'GC'
+            gold_contract.secType = 'FUT'
+            gold_contract.exchange = 'COMEX'
+            gold_contract.currency = 'USD'
+            gold_contract.lastTradeDateOrContractMonth = gc_month
             gold_contract.multiplier = '100'
             contracts['gold'] = gold_contract
+            print(f"GC requesting month: {gc_month} (April continuous)", flush=True)
             
-            # Silver futures (COMEX) - standard 5000oz contract
-            silver_contract = Future('SI', front_month, 'COMEX')
+            # Silver: SI (COMEX), 5000 oz. Contract months Mar/May/Sep/Dec
+            si_month = get_si_contract_month()
+            silver_contract = Contract()
+            silver_contract.symbol = 'SI'
+            silver_contract.secType = 'FUT'
+            silver_contract.exchange = 'COMEX'
+            silver_contract.currency = 'USD'
+            silver_contract.lastTradeDateOrContractMonth = si_month
             silver_contract.multiplier = '5000'
             contracts['silver'] = silver_contract
+            print(f"SI requesting month: {si_month}", flush=True)
             
             # Indices
             contracts['sp500'] = Index('SPX', 'CBOE', 'USD')
@@ -444,8 +483,8 @@ def api_status():
 def api_sources():
     """Which IBKR tickers/contracts we use for each asset."""
     return jsonify({
-        'gold': 'GC (COMEX Gold futures, 100 oz, front quarterly month)',
-        'silver': 'SI (COMEX Silver futures, 5000 oz, front quarterly month)',
+        'gold': 'GC (COMEX Gold, 100 oz, contract months Feb/Apr/Jun/Aug/Oct/Dec, auto-roll)',
+        'silver': 'SI (COMEX Silver, 5000 oz, contract months Mar/May/Sep/Dec, auto-roll)',
         'sp500': 'SPX (CBOE index)',
         'nasdaq': 'NQ (CME Nasdaq 100 E-mini futures)',
         'sp500_futures': 'ES (CME E-mini S&P 500 futures)',
