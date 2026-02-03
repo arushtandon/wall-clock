@@ -19,8 +19,8 @@ AcceptIncomingConnectionAction=accept
 # Allow connections from localhost
 IbAutoClosedown=no
 
-# API port (4001=live TWS, 4002=live Gateway, 7496=paper Gateway, 7497=paper TWS)
-OverrideTwsApiPort=4002
+# API port (4001 = default live Gateway; must match server.py IB_PORTS)
+OverrideTwsApiPort=4001
 
 # Allow API to make trades (set to no for safety if only viewing prices)
 ReadOnlyApi=yes
