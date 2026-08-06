@@ -11,13 +11,16 @@
     <title>Safron Live Prices</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&family=Roboto+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&family=Roboto+Mono:wght@300;400;500&family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            --font-family: 'Roboto Mono', monospace;
+            --font-size: 1rem;
+            --font-color: #ffffff;
+            --price-color: #ffffff;
         }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         html, body {
             min-height: 100%;
@@ -28,16 +31,17 @@
 
         body {
             background: #000000;
-            color: #ffffff;
-            font-family: 'Roboto Mono', monospace;
+            color: var(--font-color);
+            font-family: var(--font-family);
+            font-size: var(--font-size);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: flex-start;
             padding: 10px;
+            padding-bottom: 50px;
         }
 
-        /* MOBILE FIRST - Default styles for mobile */
         .container {
             width: 100%;
             display: flex;
@@ -49,7 +53,6 @@
             margin: 0 auto;
         }
 
-        /* Header row with logo and clock */
         .header-row {
             width: 100%;
             display: flex;
@@ -58,19 +61,16 @@
             justify-content: space-between;
             padding: 5px 0;
             gap: 10px;
+            --header-item-size: 1.5rem;
         }
 
-        /* Logo Section */
-        .logo-section {
-            flex-shrink: 0;
-        }
-
+        .logo-section { flex-shrink: 0; }
         .logo-section img {
-            width: 130px;
-            height: auto;
+            height: 10rem;
+            width: auto;
+            display: block;
         }
 
-        /* Clock Styles */
         .clock-section {
             text-align: right;
             flex: 1;
@@ -79,7 +79,7 @@
 
         .time {
             font-family: 'Orbitron', sans-serif;
-            font-size: 1.5rem;
+            font-size: var(--header-item-size);
             font-weight: 500;
             letter-spacing: 2px;
             color: #666666;
@@ -91,13 +91,37 @@
             margin-top: 3px;
             letter-spacing: 1px;
         }
+        .main-tabs {
+            display: flex;
+            gap: 0;
+            width: 100%;
+            max-width: 1100px;
+            margin-top: 8px;
+            border-bottom: 1px solid #222;
+        }
+        .main-tabs button {
+            padding: 8px 20px;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: #666;
+            font-size: 0.85rem;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .main-tabs button:hover { color: #aaa; }
+        .main-tabs button.active { color: #fff; border-bottom-color: #00ff88; }
 
-        /* Prices Section - Mobile default: 2 columns */
+        /* Prices: grid or list */
         .prices-section {
             width: 100%;
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 8px;
+        }
+
+        .prices-section.layout-list {
+            grid-template-columns: 1fr;
         }
 
         .prices-section.has-highlight {
@@ -116,15 +140,13 @@
             gap: 4px;
             cursor: pointer;
             user-select: none;
+            transition: transform 0.15s, border-color 0.15s;
         }
 
-        .price-card:hover {
-            border-color: #444444;
-        }
-
-        .price-card.hidden {
-            display: none;
-        }
+        .price-card:hover { border-color: #444444; }
+        .price-card.hidden { display: none !important; }
+        .price-card.dragging { opacity: 0.6; transform: scale(1.02); z-index: 100; }
+        .price-card.drag-over { border-color: #666; background: #1a1a1a; }
 
         .price-card.highlighted {
             border-color: #666666;
@@ -132,7 +154,6 @@
             padding: 20px;
         }
 
-        /* Alert highlights for +5% or -5% changes */
         .price-card.alert-positive {
             background: linear-gradient(145deg, #0a1a0a, #112211);
             border: 2px solid #00ff88;
@@ -158,15 +179,20 @@
         }
 
         .asset-price {
-            font-family: 'Orbitron', sans-serif;
+            font-family: var(--font-family), sans-serif;
             font-size: 1.1rem;
             font-weight: 700;
-            color: #ffffff;
+            color: var(--card-price-color, var(--font-color));
         }
+        /* When user sets a single price color, it overrides per-asset defaults */
+        body.price-color-custom .asset-price { color: var(--price-color) !important; }
+        .price-card.has-custom-style .asset-price { color: var(--card-price-color) !important; }
+        /* Neutral change uses tile font color; up/down must stay green/red */
+        .price-card.has-custom-style .asset-change.neutral { color: var(--card-font-color) !important; }
+        .price-card.has-custom-style .asset-change.positive { color: #00ff88 !important; }
+        .price-card.has-custom-style .asset-change.negative { color: #ff4444 !important; }
 
-        .price-card.highlighted .asset-price {
-            font-size: 2rem;
-        }
+        .price-card.highlighted .asset-price { font-size: 2rem; }
 
         .asset-change {
             font-size: 0.6rem;
@@ -175,215 +201,288 @@
             gap: 4px;
         }
 
-        .price-card.highlighted .asset-change {
-            font-size: 0.9rem;
+        .price-card.highlighted .asset-change { font-size: 0.9rem; }
+        .positive { color: #00ff88; }
+        .negative { color: #ff4444; }
+        .chart-panel {
+            width: 100%;
+            max-width: 1100px;
+            height: 320px;
+            margin-top: 12px;
+            background: #0a0a0a;
+            border: 1px solid #222;
+            border-radius: 8px;
+            overflow: hidden;
         }
+        .chart-panel.hidden { display: none !important; }
+        .chart-panel .chart-title { padding: 8px 12px; font-size: 0.75rem; color: #888; }
+        .neutral { color: #888888; }
+        .arrow { font-size: 0.8em; }
+        .loading { color: #444444; animation: pulse 1.5s ease-in-out infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
 
-        .positive {
-            color: #00ff88;
-        }
-
-        .negative {
-            color: #ff4444;
-        }
-
-        .neutral {
-            color: #888888;
-        }
-
-        .arrow {
-            font-size: 0.8em;
-        }
-
-        /* Loading state */
-        .loading {
-            color: #444444;
-            animation: pulse 1.5s ease-in-out infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 0.4; }
-            50% { opacity: 1; }
-        }
-
-        /* Status indicator - hidden on mobile by default */
-        .status {
-            display: none;
-        }
-
+        .status { display: none; }
         .status-dot {
             display: inline-block;
-            width: 6px;
-            height: 6px;
+            width: 6px; height: 6px;
             border-radius: 50%;
             margin-right: 6px;
             background: #444444;
         }
+        .status-dot.connected { background: #00ff88; box-shadow: 0 0 10px #00ff88; }
+        .status-dot.error { background: #ff4444; }
+        .click-hint { display: none; }
+        .fullscreen-btn { display: none; }
 
-        .status-dot.connected {
-            background: #00ff88;
-            box-shadow: 0 0 10px #00ff88;
+        /* Per-asset default price colors (overridden by --price-color when set) */
+        .ym-futures .asset-price { color: var(--price-color, #7ec8e3); }
+        .hsi-futures .asset-price { color: var(--price-color, #e06666); }
+        .btc-futures .asset-price { color: var(--price-color, #f7931a); }
+        .silver .asset-price { color: var(--price-color, #c0c0c0); }
+        .gold .asset-price { color: var(--price-color, #ffd700); }
+        .sp500-futures .asset-price { color: var(--price-color, #00bfff); }
+        .nasdaq-futures .asset-price { color: var(--price-color, #ff66b2); }
+        .nifty-futures .asset-price { color: var(--price-color, #ff9933); }
+        .crude-futures .asset-price { color: var(--price-color, #2d5016); }
+        .kospi-200 .asset-price { color: var(--price-color, #6a5acd); }
+        .dollar-index .asset-price { color: var(--price-color, #7fff00); }
+        .usd-inr .asset-price { color: var(--price-color, #40e0d0); }
+        .mtw-futures .asset-price { color: var(--price-color, #5dade2); }
+        .rty-futures .asset-price { color: var(--price-color, #58d68d); }
+        .nikkei-futures .asset-price { color: var(--price-color, #f5b041); }
+        .dax-futures .asset-price { color: var(--price-color, #af7ac5); }
+        .wti-futures .asset-price { color: var(--price-color, #d35400); }
+        .copper-futures .asset-price { color: var(--price-color, #cd7f32); }
+        .asset-subselect {
+            margin-top: 4px;
+            background: #111;
+            color: #bbb;
+            border: 1px solid #333;
+            border-radius: 4px;
+            font-size: 0.58rem;
+            padding: 2px 4px;
         }
 
-        .status-dot.error {
-            background: #ff4444;
+        .news-preview-section {
+            width: 100%;
+            max-width: 1100px;
+            margin-top: 20px;
+            padding: 12px 0;
+            border-top: 1px solid #222;
         }
-        
-        /* Click hint - hidden on mobile */
-        .click-hint {
+        .news-section {
+            width: 100%;
+            max-width: 1100px;
+            margin-top: 20px;
+            padding: 12px 0;
+            border-top: 1px solid #222;
+        }
+        body.show-news .news-preview-section { display: none !important; }
+        .news-section { display: none; }
+        body.show-news .news-section { display: block !important; }
+        body.show-news .prices-section { display: none; }
+        body.show-news .chart-panel { display: none; }
+        body.show-news .click-hint { display: none; }
+        .news-view-all { margin-top: 10px; font-size: 0.85rem; }
+        .news-view-all a { color: #7eb8da; text-decoration: none; }
+        .news-view-all a:hover { text-decoration: underline; }
+        .news-heading {
+            font-size: 0.9rem;
+            color: #888;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        .news-list { display: flex; flex-direction: column; gap: 8px; }
+        .news-item {
+            background: #0d0d0d;
+            border: 1px solid #222;
+            border-radius: 6px;
+            padding: 10px 12px;
+            font-size: 0.85rem;
+        }
+        .news-item a {
+            color: #b0b0b0;
+            text-decoration: none;
+        }
+        .news-item a:hover { color: #fff; text-decoration: underline; }
+        .news-item .news-source { color: #666; font-size: 0.75rem; margin-top: 4px; }
+        .news-item .news-date { color: #555; font-size: 0.7rem; }
+        .news-load-more {
+            margin-top: 12px;
+            padding: 8px 16px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #aaa;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        .news-load-more:hover { background: #252525; color: #fff; }
+        .news-load-more.hidden { display: none; }
+
+        /* Control panel icon - grey translucent at bottom */
+        .control-panel-icon {
+            position: fixed;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: rgba(80, 80, 80, 0.6);
+            border: 1px solid rgba(120, 120, 120, 0.5);
+            color: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            cursor: pointer;
+            z-index: 1000;
+            backdrop-filter: blur(6px);
+            -webkit-tap-highlight-color: transparent;
+        }
+        .control-panel-icon:hover {
+            background: rgba(100, 100, 100, 0.75);
+        }
+
+        /* Control panel modal */
+        .control-panel-overlay {
             display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
         }
-        
-        /* Fullscreen button - hidden on mobile */
-        .fullscreen-btn {
-            display: none;
+        .control-panel-overlay.open {
+            display: flex;
+        }
+        .control-panel {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 380px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .control-panel h3 {
+            color: #ccc;
+            font-size: 1rem;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #333;
+        }
+        .control-row {
+            margin-bottom: 14px;
+        }
+        .control-row label {
+            display: block;
+            color: #999;
+            font-size: 0.75rem;
+            margin-bottom: 4px;
+        }
+        .control-row select,
+        .control-row input[type="range"],
+        .control-row input[type="color"] {
+            width: 100%;
+            padding: 6px 8px;
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 0.85rem;
+        }
+        .control-row input[type="color"] {
+            height: 36px;
+            padding: 2px;
+            cursor: pointer;
+        }
+        .control-row input[type="range"] {
+            padding: 0;
+        }
+        .control-row .range-value {
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 2px;
+        }
+        .control-row .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px 16px;
+        }
+        .control-row .checkbox-group label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin: 0;
+            cursor: pointer;
+            color: #ccc;
+            font-size: 0.85rem;
+        }
+        .control-row .checkbox-group input { width: auto; }
+        .control-panel .layout-toggle {
+            display: flex;
+            gap: 8px;
+        }
+        .control-panel .layout-toggle button {
+            flex: 1;
+            padding: 10px;
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            color: #999;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        .control-panel .layout-toggle button.active {
+            border-color: #666;
+            color: #fff;
+            background: #222;
+        }
+        .control-panel .close-btn {
+            margin-top: 16px;
+            width: 100%;
+            padding: 10px;
+            background: #333;
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 0.9rem;
         }
 
-        /* Commodities styling */
-        .silver .asset-price {
-            color: #c0c0c0;
-        }
-
-        .gold .asset-price {
-            color: #ffd700;
-        }
-
-        .sp500 .asset-price {
-            color: #4da6ff;
-        }
-
-        .nasdaq .asset-price {
-            color: #b366ff;
-        }
-
-        .sp500-futures .asset-price {
-            color: #00bfff;
-        }
-
-        .nasdaq-futures .asset-price {
-            color: #ff66b2;
-        }
-
-        .nifty-futures .asset-price {
-            color: #ff9933;
-        }
-
-        /* Landscape mobile */
-        @media (orientation: landscape) and (max-height: 500px) {
-            .prices-section {
-                grid-template-columns: repeat(4, 1fr);
-            }
-            
-            .clock-section {
-                padding: 5px 0;
-            }
-            
-            .time {
-                font-size: 1.2rem;
-            }
-        }
-
-        /* DESKTOP STYLES - only for large screens */
         @media (min-width: 900px) {
-            body {
-                padding: 20px;
-                justify-content: center;
-            }
-            
-            .container {
-                max-width: 1200px;
-                gap: 25px;
-                padding: 30px;
-                justify-content: center;
-            }
-            
-            .header-row {
-                padding: 10px 0;
-            }
-            
-            .logo-section img {
-                width: 200px;
-            }
-            
-            .clock-section {
-                padding: 0;
-            }
-            
-            .time {
-                font-size: 2.5rem;
-            }
-            
-            .date {
-                font-size: 0.9rem;
-                margin-top: 5px;
-            }
-            
+            body { padding: 20px; padding-bottom: 60px; justify-content: center; }
+            .container { max-width: 1200px; gap: 25px; padding: 30px; justify-content: center; }
+            .header-row { padding: 10px 0; --header-item-size: 2.5rem; }
+            .logo-section img { height: 15rem; }
+            .time { font-size: var(--header-item-size); }
+            .date { font-size: 0.9rem; margin-top: 5px; }
             .prices-section {
                 grid-template-columns: repeat(3, 1fr);
                 gap: 20px;
                 max-width: 1100px;
             }
-            
-            .price-card {
-                padding: 25px;
-                border-radius: 12px;
-                gap: 10px;
-            }
-            
-            .price-card:hover {
-                transform: scale(1.02);
-            }
-            
-            .asset-name {
-                font-size: 1.1rem;
-            }
-            
-            .asset-price {
-                font-size: 3rem;
-            }
-            
-            .asset-change {
-                font-size: 1.2rem;
-                gap: 8px;
-            }
-            
-            .price-card.highlighted {
-                padding: 40px;
-            }
-            
-            .price-card.highlighted .asset-name {
-                font-size: 1.5rem;
-            }
-            
-            .price-card.highlighted .asset-price {
-                font-size: 6rem;
-            }
-            
-            .price-card.highlighted .asset-change {
-                font-size: 2rem;
-            }
-            
-            .status {
-                display: block;
-                font-size: 0.7rem;
-                color: #444444;
-                text-align: center;
-                margin-top: 20px;
-            }
-            
-            .click-hint {
-                display: block;
-                font-size: 0.7rem;
-                color: #333333;
-                text-align: center;
-                margin-top: 5px;
-            }
-            
+            .prices-section.layout-list { grid-template-columns: 1fr; max-width: 500px; }
+            .price-card { padding: 25px; border-radius: 12px; gap: 10px; }
+            .price-card:hover { transform: scale(1.02); }
+            .asset-name { font-size: 1.1rem; }
+            .asset-price { font-size: 3rem; }
+            .asset-change { font-size: 1.2rem; gap: 8px; }
+            .price-card.highlighted { padding: 40px; }
+            .price-card.highlighted .asset-name { font-size: 1.5rem; }
+            .price-card.highlighted .asset-price { font-size: 6rem; }
+            .price-card.highlighted .asset-change { font-size: 2rem; }
+            .status { display: block; font-size: 0.7rem; color: #444; text-align: center; margin-top: 20px; }
+            .click-hint { display: block; font-size: 0.7rem; color: #333; text-align: center; margin-top: 5px; }
             .fullscreen-btn {
                 display: block;
                 position: fixed;
-                top: 15px;
-                right: 15px;
+                top: 15px; right: 15px;
                 background: transparent;
                 border: 1px solid #333;
                 color: #666;
@@ -393,21 +492,11 @@
                 font-size: 0.8rem;
                 z-index: 100;
             }
-            
-            .fullscreen-btn:hover {
-                border-color: #555;
-                color: #999;
-            }
+            .control-panel-icon { bottom: 20px; width: 48px; height: 48px; font-size: 1.5rem; }
         }
 
-        /* Hide cursor after inactivity */
-        body.hide-cursor {
-            cursor: none;
-        }
-
-        body.hide-cursor .fullscreen-btn {
-            opacity: 0;
-        }
+        body.hide-cursor { cursor: none; }
+        body.hide-cursor .fullscreen-btn { opacity: 0; }
     </style>
 </head>
 <body>
@@ -424,359 +513,772 @@
             </div>
         </div>
 
-        <div class="prices-section" id="prices-section">
-            <div class="price-card silver" onclick="toggleHighlight(this)">
-                <div class="asset-name">Silver</div>
-                <div class="asset-price loading" id="silver-price">---.--</div>
-                <div class="asset-change neutral" id="silver-change">---</div>
-            </div>
+        <nav class="main-tabs" aria-label="Main">
+            <button type="button" class="tab-prices active" id="tab-prices">Prices</button>
+            <button type="button" class="tab-news" id="tab-news">News</button>
+        </nav>
 
-            <div class="price-card gold" onclick="toggleHighlight(this)">
-                <div class="asset-name">Gold</div>
-                <div class="asset-price loading" id="gold-price">-----.--</div>
-                <div class="asset-change neutral" id="gold-change">---</div>
-            </div>
-
-            <div class="price-card sp500" onclick="toggleHighlight(this)">
-                <div class="asset-name">S&P 500</div>
-                <div class="asset-price loading" id="sp500-price">-----.--</div>
-                <div class="asset-change neutral" id="sp500-change">---</div>
-            </div>
-
-            <div class="price-card nasdaq" onclick="toggleHighlight(this)">
-                <div class="asset-name">Nasdaq</div>
-                <div class="asset-price loading" id="nasdaq-price">------.--</div>
-                <div class="asset-change neutral" id="nasdaq-change">---</div>
-            </div>
-
-            <div class="price-card sp500-futures" onclick="toggleHighlight(this)">
-                <div class="asset-name">S&P 500 Futures</div>
-                <div class="asset-price loading" id="sp500-futures-price">-----.--</div>
-                <div class="asset-change neutral" id="sp500-futures-change">---</div>
-            </div>
-
-            <div class="price-card nasdaq-futures" onclick="toggleHighlight(this)">
-                <div class="asset-name">Nasdaq Futures</div>
-                <div class="asset-price loading" id="nasdaq-futures-price">------.--</div>
-                <div class="asset-change neutral" id="nasdaq-futures-change">---</div>
-            </div>
-
-            <div class="price-card nifty-futures" onclick="toggleHighlight(this)">
-                <div class="asset-name">Nifty Futures</div>
-                <div class="asset-price loading" id="nifty-futures-price">------.--</div>
-                <div class="asset-change neutral" id="nifty-futures-change">---</div>
-            </div>
+        <div class="prices-section" id="prices-section"></div>
+        <div class="chart-panel hidden" id="chart-panel">
+            <div class="chart-title" id="chart-title">15m · Last 6 months</div>
+            <div id="chart-container" style="height: 280px;"></div>
         </div>
 
-        <div class="click-hint">Click any asset to expand</div>
-
+        <div class="click-hint">Click any asset to expand · Long-press 300ms then drag to reorder</div>
         <div class="status">
             <span class="status-dot" id="status-dot"></span>
             <span id="status-text">Connecting...</span>
         </div>
+
+        <section class="news-preview-section" id="news-preview-section">
+            <h2 class="news-heading">Market news</h2>
+            <div class="news-list" id="news-list-preview"><div class="news-item">Loading news…</div></div>
+            <p class="news-view-all"><a href="#" id="news-view-all-link">View all in News tab →</a></p>
+        </section>
+        <section class="news-section" id="news-section">
+            <h2 class="news-heading">All news</h2>
+            <div class="news-list" id="news-list"><div class="news-item">Loading news…</div></div>
+            <button type="button" class="news-load-more hidden" id="news-load-more">Older articles</button>
+        </section>
     </div>
 
+    <button class="control-panel-icon" id="control-panel-icon" title="Settings" aria-label="Settings">⚙</button>
+
+    <div class="control-panel-overlay" id="control-panel-overlay">
+        <div class="control-panel">
+            <h3>Settings</h3>
+            <div class="control-row">
+                <label>Font style</label>
+                <select id="font-family">
+                    <option value="'Roboto Mono', monospace">Roboto Mono</option>
+                    <option value="'Orbitron', sans-serif">Orbitron</option>
+                    <option value="'Inter', sans-serif">Inter</option>
+                    <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
+                </select>
+            </div>
+            <div class="control-row">
+                <label>Font size</label>
+                <input type="range" id="font-size" min="12" max="24" value="16" step="1">
+                <div class="range-value" id="font-size-value">16px</div>
+            </div>
+            <div class="control-row">
+                <label>Font color</label>
+                <input type="color" id="font-color" value="#ffffff">
+            </div>
+            <div class="control-row">
+                <label>Price color (main number)</label>
+                <input type="color" id="price-color" value="#ffffff" title="Leave default or set to override all tile price colors">
+            </div>
+            <div class="control-row">
+                <label>Apply to</label>
+                <div class="layout-toggle">
+                    <button type="button" id="apply-current-tile" title="When one tile is expanded">This tile only</button>
+                    <button type="button" id="apply-all-tiles" class="active" title="When viewing all tiles">All tiles</button>
+                </div>
+            </div>
+            <div class="control-row">
+                <label>Layout</label>
+                <div class="layout-toggle">
+                    <button type="button" id="layout-grid" class="active">Grid</button>
+                    <button type="button" id="layout-list">List</button>
+                </div>
+            </div>
+            <div class="control-row">
+                <label>Show assets (select/deselect any — saved only in this browser)</label>
+                <div class="checkbox-group" id="asset-checkboxes">
+                    <!-- filled by JS -->
+                </div>
+            </div>
+            <button class="close-btn" id="control-close">Close</button>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
     <script>
-        // Clock functionality
-        function updateClock() {
-            const now = new Date();
-            
-            // Time
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const seconds = String(now.getSeconds()).padStart(2, '0');
-            document.getElementById('time').textContent = `${hours}:${minutes}:${seconds}`;
-            
-            // Date
-            const options = { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-            };
-            document.getElementById('date').textContent = now.toLocaleDateString('en-US', options);
+        const DEFAULT_ORDER = ['silver','gold','dollar_index','crude_futures','sp500_futures','nasdaq_futures','nifty_futures','ym_futures','hsi_futures','kospi_200','usd_inr','btc_futures'];
+        // Extra products available in Settings; off by default so the shared wall stays on DEFAULT_ORDER.
+        const EXTRA_ASSETS = ['mtw_futures','rty_futures','nikkei_futures','dax_futures','wti_futures','copper_futures'];
+        const ALL_ASSET_KEYS = DEFAULT_ORDER.concat(EXTRA_ASSETS);
+        const ASSET_CONFIG = {
+            silver:        { symbol: 'XAG/USD',  name: 'Silver',           decimals: 2, elPrice: 'silver-price',        elChange: 'silver-change',        css: 'silver' },
+            gold:          { symbol: 'XAU/USD',  name: 'Gold',             decimals: 2, elPrice: 'gold-price',          elChange: 'gold-change',          css: 'gold' },
+            dollar_index:  { symbol: 'DXY',      name: 'Dollar Index',     decimals: 2, elPrice: 'dollar-index-price',  elChange: 'dollar-index-change',  css: 'dollar-index' },
+            crude_futures: { symbol: 'BZ',       name: 'Brent Futures',  decimals: 2, elPrice: 'crude-futures-price',  elChange: 'crude-futures-change',  css: 'crude-futures' },
+            sp500_futures: { symbol: 'ES',       name: 'S&P 500 Futures',  decimals: 2, elPrice: 'sp500-futures-price',  elChange: 'sp500-futures-change',  css: 'sp500-futures' },
+            nasdaq_futures:{ symbol: 'NQ',       name: 'Nasdaq Futures',   decimals: 2, elPrice: 'nasdaq-futures-price',  elChange: 'nasdaq-futures-change', css: 'nasdaq-futures' },
+            nifty_futures: { symbol: 'NIFTY',    name: 'Nifty Futures',    decimals: 2, elPrice: 'nifty-futures-price',   elChange: 'nifty-futures-change',  css: 'nifty-futures' },
+            ym_futures:    { symbol: 'YM',       name: 'Dow Futures',      decimals: 2, elPrice: 'ym-futures-price',     elChange: 'ym-futures-change',     css: 'ym-futures' },
+            hsi_futures:   { symbol: 'HSI',      name: 'Hang Seng',        decimals: 2, elPrice: 'hsi-futures-price',    elChange: 'hsi-futures-change',    css: 'hsi-futures' },
+            kospi_200:    { symbol: 'KOSPI200', name: 'Kospi 200',       decimals: 2, elPrice: 'kospi-200-price',     elChange: 'kospi-200-change',     css: 'kospi-200' },
+            usd_inr:       { symbol: 'USDINR',   name: 'USD/INR',          decimals: 4, elPrice: 'usd-inr-price',        elChange: 'usd-inr-change',        css: 'usd-inr' },
+            btc_futures:   { symbol: 'BTC',     name: 'Bitcoin',          decimals: 2, elPrice: 'btc-futures-price',    elChange: 'btc-futures-change',    css: 'btc-futures' },
+            mtw_futures:   { symbol: 'MTW',     name: 'MTW (HKFE)',       decimals: 2, elPrice: 'mtw-futures-price',    elChange: 'mtw-futures-change',    css: 'mtw-futures' },
+            rty_futures:   { symbol: 'RTY',     name: 'Russell 2000',     decimals: 2, elPrice: 'rty-futures-price',    elChange: 'rty-futures-change',    css: 'rty-futures' },
+            nikkei_futures:{ symbol: 'NKD',     name: 'Nikkei (CME)',     decimals: 2, elPrice: 'nikkei-futures-price', elChange: 'nikkei-futures-change', css: 'nikkei-futures' },
+            dax_futures:   { symbol: 'DAX',     name: 'DAX',              decimals: 2, elPrice: 'dax-futures-price',    elChange: 'dax-futures-change',    css: 'dax-futures' },
+            wti_futures:   { symbol: 'CL',      name: 'WTI Crude',        decimals: 2, elPrice: 'wti-futures-price',    elChange: 'wti-futures-change',    css: 'wti-futures' },
+            copper_futures:{ symbol: 'HG',      name: 'Copper',           decimals: 4, elPrice: 'copper-futures-price', elChange: 'copper-futures-change', css: 'copper-futures' },
+        };
+
+        function defaultOptionalFor(key) {
+            // Current wall layout stays default; extras start unchecked for each browser.
+            return DEFAULT_ORDER.indexOf(key) !== -1;
         }
 
-        // Update clock every second
+        function loadSettings() {
+            try {
+                const s = localStorage.getItem('wallclock-settings');
+                if (s) {
+                    const loaded = JSON.parse(s);
+                    const opt = loaded.optional || {};
+                    ALL_ASSET_KEYS.forEach(k => {
+                        if (opt[k] === undefined) opt[k] = defaultOptionalFor(k);
+                    });
+                    loaded.optional = opt;
+                    const order = loaded.assetOrder || DEFAULT_ORDER.slice();
+                    ALL_ASSET_KEYS.forEach(k => { if (ASSET_CONFIG[k] && !order.includes(k)) order.push(k); });
+                    loaded.assetOrder = order;
+                    if (loaded.priceColor === undefined) loaded.priceColor = '#ffffff';
+                    if (loaded.applyTo === undefined) loaded.applyTo = 'all';
+                    if (!loaded.perAsset) loaded.perAsset = {};
+                    return loaded;
+                }
+            } catch (e) {}
+            const optional = {};
+            ALL_ASSET_KEYS.forEach(k => { optional[k] = defaultOptionalFor(k); });
+            return {
+                fontFamily: "'Roboto Mono', monospace",
+                fontSize: 16,
+                fontColor: '#ffffff',
+                priceColor: '#ffffff',
+                applyTo: 'all',
+                assetOrder: DEFAULT_ORDER.concat(EXTRA_ASSETS),
+                optional: optional,
+                perAsset: {},
+                layout: 'grid'
+            };
+        }
+
+        function saveSettings(settings) {
+            try {
+                localStorage.setItem('wallclock-settings', JSON.stringify(settings));
+            } catch (e) {}
+        }
+
+        let settings = loadSettings();
+
+        function getEffectiveSettings(forAssetKey) {
+            const base = { fontFamily: settings.fontFamily, fontSize: settings.fontSize, fontColor: settings.fontColor, priceColor: settings.priceColor };
+            if (forAssetKey && settings.perAsset && settings.perAsset[forAssetKey])
+                return { ...base, ...settings.perAsset[forAssetKey] };
+            return base;
+        }
+        function applyFontSettings(forAssetKey) {
+            const targetKey = (settings.applyTo === 'tile' && highlightedCard && highlightedCard.dataset && highlightedCard.dataset.assetKey) ? highlightedCard.dataset.assetKey : null;
+            const eff = getEffectiveSettings(forAssetKey || targetKey);
+            document.documentElement.style.setProperty('--font-family', eff.fontFamily);
+            document.documentElement.style.setProperty('--font-size', eff.fontSize + 'px');
+            document.documentElement.style.fontSize = eff.fontSize + 'px';
+            document.documentElement.style.setProperty('--font-color', eff.fontColor);
+            const useSinglePriceColor = eff.priceColor && eff.priceColor !== '#ffffff';
+            document.documentElement.style.setProperty('--price-color', useSinglePriceColor ? eff.priceColor : '');
+            document.body.classList.toggle('price-color-custom', !!useSinglePriceColor);
+            const sizeEl = document.getElementById('font-size');
+            const colorEl = document.getElementById('font-color');
+            const priceColorEl = document.getElementById('price-color');
+            const familyEl = document.getElementById('font-family');
+            if (sizeEl) { sizeEl.value = eff.fontSize; document.getElementById('font-size-value').textContent = eff.fontSize + 'px'; }
+            if (colorEl) colorEl.value = eff.fontColor;
+            if (priceColorEl) priceColorEl.value = eff.priceColor || '#ffffff';
+            if (familyEl) familyEl.value = eff.fontFamily;
+        }
+
+        function getOrderedAssetKeys() {
+            const order = settings.assetOrder || DEFAULT_ORDER.slice();
+            const optional = settings.optional || {};
+            return order.filter(k => ASSET_CONFIG[k] && optional[k] !== false);
+        }
+
+        function renderTiles() {
+            const section = document.getElementById('prices-section');
+            const hadHighlight = section.classList.contains('has-highlight');
+            section.className = 'prices-section layout-' + (settings.layout || 'grid');
+            if (hadHighlight) section.classList.add('has-highlight');
+            const keys = getOrderedAssetKeys();
+            section.innerHTML = '';
+            keys.forEach(key => {
+                const cfg = ASSET_CONFIG[key];
+                if (!cfg) return;
+                const card = document.createElement('div');
+                card.className = 'price-card ' + (cfg.css || '');
+                card.dataset.assetKey = key;
+                if (key === 'dollar_index') {
+                    card.innerHTML =
+                        '<div class="asset-name">' + cfg.name + '</div>' +
+                        '<select id="dollar-index-mode" class="asset-subselect">' +
+                        '<option value="dxy">DXY</option>' +
+                        '<option value="eur_usd">EURUSD</option>' +
+                        '<option value="usd_jpy">USDJPY</option>' +
+                        '<option value="usd_hkd">USDHKD</option>' +
+                        '<option value="gbp_usd">GBPUSD</option>' +
+                        '</select>' +
+                        '<div class="asset-price loading" id="' + cfg.elPrice + '">---.--</div>' +
+                        '<div class="asset-change neutral" id="' + cfg.elChange + '">---</div>';
+                } else {
+                    card.innerHTML = '<div class="asset-name">' + cfg.name + '</div><div class="asset-price loading" id="' + cfg.elPrice + '">---.--</div><div class="asset-change neutral" id="' + cfg.elChange + '">---</div>';
+                }
+                card.onclick = () => { if (justDragged) return; toggleHighlight(card); };
+                section.appendChild(card);
+            });
+            const modeSel = document.getElementById('dollar-index-mode');
+            if (modeSel) {
+                modeSel.value = settings.dollarIndexMode || 'dxy';
+                modeSel.addEventListener('click', function(e) { e.stopPropagation(); });
+                modeSel.addEventListener('change', function(e) {
+                    e.stopPropagation();
+                    settings.dollarIndexMode = this.value;
+                    saveSettings(settings);
+                    refreshPrices();
+                });
+            }
+            setupDragAndDrop();
+            applyPerAssetStyles();
+        }
+
+        function applyPerAssetStyles() {
+            const section = document.getElementById('prices-section');
+            if (!section) return;
+            section.querySelectorAll('.price-card').forEach(card => {
+                const key = card.dataset.assetKey;
+                const over = settings.perAsset && settings.perAsset[key];
+                if (!over) {
+                    card.classList.remove('has-custom-style');
+                    card.style.fontFamily = '';
+                    card.style.fontSize = '';
+                    card.style.removeProperty('--card-font-color');
+                    card.style.removeProperty('--card-price-color');
+                    return;
+                }
+                card.classList.add('has-custom-style');
+                if (over.fontFamily) card.style.fontFamily = over.fontFamily;
+                if (over.fontSize) card.style.fontSize = over.fontSize + 'px';
+                if (over.fontColor) card.style.setProperty('--card-font-color', over.fontColor);
+                if (over.priceColor) card.style.setProperty('--card-price-color', over.priceColor);
+            });
+        }
+
+        let longPressTimer;
+        let draggedEl;
+        let dragGhost;
+        let justDragged = false; // prevent click after long-press drag
+
+        function setupDragAndDrop() {
+            const section = document.getElementById('prices-section');
+            const cards = section.querySelectorAll('.price-card');
+            cards.forEach(card => {
+                card.addEventListener('touchstart', onDragStart, { passive: false });
+                card.addEventListener('touchend', onDragEnd, { passive: false });
+                card.addEventListener('touchmove', onDragMove, { passive: false });
+                card.addEventListener('mousedown', onDragStart);
+            });
+        }
+
+        document.addEventListener('mouseup', onDragEnd);
+        document.addEventListener('mousemove', onDragMove);
+        document.addEventListener('touchend', onDragEnd, { passive: false });
+        document.addEventListener('touchmove', onDragMove, { passive: false });
+
+        function onDragStart(e) {
+            const card = e.target.closest('.price-card');
+            if (!card || card.classList.contains('highlighted')) return;
+            const isTouch = e.type === 'touchstart';
+            longPressTimer = setTimeout(() => {
+                longPressTimer = null;
+                draggedEl = card;
+                card.classList.add('dragging');
+                if (isTouch) e.preventDefault();
+            }, 300);
+        }
+
+        function onDragMove(e) {
+            if (longPressTimer && (e.type === 'touchmove' || e.type === 'mousemove')) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+            if (!draggedEl) return;
+            e.preventDefault();
+            const section = document.getElementById('prices-section');
+            const cards = Array.from(section.querySelectorAll('.price-card:not(.dragging)'));
+            const touch = e.touches && e.touches[0];
+            const clientX = touch ? touch.clientX : e.clientX;
+            const clientY = touch ? touch.clientY : e.clientY;
+            let over = null;
+            for (const c of cards) {
+                const r = c.getBoundingClientRect();
+                if (clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom) { over = c; break; }
+            }
+            cards.forEach(c => c.classList.remove('drag-over'));
+            if (over) over.classList.add('drag-over');
+        }
+
+        function onDragEnd(e) {
+            if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+            const section = document.getElementById('prices-section');
+            if (draggedEl) {
+                const over = section ? section.querySelector('.price-card.drag-over') : null;
+                if (over && over !== draggedEl) {
+                    const keys = getOrderedAssetKeys();
+                    const fromKey = draggedEl.dataset.assetKey;
+                    const toKey = over.dataset.assetKey;
+                    const fromIdx = keys.indexOf(fromKey);
+                    const toIdx = keys.indexOf(toKey);
+                    if (fromIdx !== -1 && toIdx !== -1) {
+                        keys.splice(fromIdx, 1);
+                        keys.splice(keys.indexOf(toKey), 0, fromKey);
+                        settings.assetOrder = keys;
+                        saveSettings(settings);
+                        renderTiles();
+                        refreshPrices();
+                    }
+                }
+                if (section) section.querySelectorAll('.price-card.drag-over').forEach(c => c.classList.remove('drag-over'));
+                draggedEl.classList.remove('dragging');
+                draggedEl = null;
+                justDragged = true;
+                setTimeout(() => { justDragged = false; }, 200);
+            }
+        }
+
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('time').textContent = now.toTimeString().slice(0, 8);
+            document.getElementById('date').textContent = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        }
         setInterval(updateClock, 1000);
         updateClock();
 
-        // Price data configuration - investing.com symbols
-        const assets = {
-            silver: {
-                symbol: 'XAG/USD',  // Silver
-                elementPrice: 'silver-price',
-                elementChange: 'silver-change',
-                decimals: 4
-            },
-            gold: {
-                symbol: 'XAU/USD',  // Gold
-                elementPrice: 'gold-price',
-                elementChange: 'gold-change',
-                decimals: 4
-            },
-            sp500: {
-                symbol: '^GSPC',  // S&P 500
-                elementPrice: 'sp500-price',
-                elementChange: 'sp500-change',
-                decimals: 2
-            },
-            nasdaq: {
-                symbol: '^IXIC',  // Nasdaq Composite
-                elementPrice: 'nasdaq-price',
-                elementChange: 'nasdaq-change',
-                decimals: 2
-            },
-            sp500Futures: {
-                symbol: 'ES',  // S&P 500 Futures
-                elementPrice: 'sp500-futures-price',
-                elementChange: 'sp500-futures-change',
-                decimals: 2
-            },
-            nasdaqFutures: {
-                symbol: 'NQ',  // Nasdaq Futures
-                elementPrice: 'nasdaq-futures-price',
-                elementChange: 'nasdaq-futures-change',
-                decimals: 2
-            },
-            niftyFutures: {
-                symbol: 'NIFTY',  // Nifty Futures
-                elementPrice: 'nifty-futures-price',
-                elementChange: 'nifty-futures-change',
-                decimals: 2
-            }
-        };
-
-        // Fetch prices from local server API
         async function fetchPrices() {
-            // Use local server API (must run server.py)
-            const apiUrl = '/api/prices';
-            
             try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-                
-                const response = await fetch(apiUrl, {
-                    headers: { 'Accept': 'application/json' },
-                    signal: controller.signal,
-                    cache: 'no-store'
-                });
-                
-                clearTimeout(timeoutId);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-                
-                const data = await response.json();
-                
-                if (data.quoteResponse && data.quoteResponse.result) {
-                    updateStatus(true);
-                    return data.quoteResponse.result;
-                } else if (data.error) {
-                    throw new Error(data.error);
-                }
-            } catch (error) {
-                if (error.name !== 'AbortError') {
-                    console.error('Fetch error:', error);
-                    updateStatus(false, error.message);
-                }
+                const c = new AbortController();
+                setTimeout(() => c.abort(), 5000);
+                const r = await fetch('/api/prices', { headers: { 'Accept': 'application/json' }, signal: c.signal, cache: 'no-store' });
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                const data = await r.json();
+                if (data.quoteResponse && Array.isArray(data.quoteResponse.result))
+                    return { quotes: data.quoteResponse.result, demo: !!data.demo, wallclock: data.wallclock };
+                if (data.error) throw new Error(data.error);
+            } catch (err) {
+                if (err.name !== 'AbortError') { console.error(err); updateStatus(false, err.message); }
             }
-            
             return null;
         }
 
-        // Update price display
-        function updatePriceDisplay(asset, quote) {
-            const priceElement = document.getElementById(asset.elementPrice);
-            const changeElement = document.getElementById(asset.elementChange);
-            const cardElement = priceElement.closest('.price-card');
-            
+        function updatePriceDisplay(key, quote) {
+            const cfg = ASSET_CONFIG[key];
+            if (!cfg) return;
+            const priceEl = document.getElementById(cfg.elPrice);
+            const changeEl = document.getElementById(cfg.elChange);
+            const card = priceEl && priceEl.closest('.price-card');
+            if (!priceEl) return;
             if (!quote) {
-                priceElement.classList.add('loading');
+                priceEl.classList.add('loading');
+                priceEl.textContent = '---.--';
+                if (changeEl) { changeEl.textContent = '---'; changeEl.className = 'asset-change neutral'; }
+                if (card) card.classList.remove('alert-positive', 'alert-negative');
                 return;
             }
-            
-            priceElement.classList.remove('loading');
-            
-            // Price
-            const price = quote.regularMarketPrice || quote.price;
-            if (price) {
-                priceElement.textContent = price.toLocaleString('en-US', {
-                    minimumFractionDigits: asset.decimals,
-                    maximumFractionDigits: asset.decimals
-                });
+            priceEl.classList.remove('loading');
+            const price = quote.regularMarketPrice ?? quote.price;
+            if (price != null && typeof price === 'number') {
+                const decimals = Number.isFinite(cfg.decimals) ? cfg.decimals : 2;
+                const pow = Math.pow(10, decimals);
+                const rounded = Math.round(price * pow) / pow;
+                priceEl.textContent = rounded.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
             }
-            
-            // Change
-            const change = quote.regularMarketChange;
-            const changePercent = quote.regularMarketChangePercent;
-            
-            if (change !== undefined && changePercent !== undefined) {
+            let change = quote.regularMarketChange;
+            let pct = quote.regularMarketChangePercent;
+            if (typeof change === 'string' && change !== '') change = parseFloat(change);
+            if (typeof pct === 'string' && pct !== '') pct = parseFloat(pct);
+            if (!Number.isFinite(change)) change = null;
+            if (!Number.isFinite(pct)) pct = null;
+            if (change != null && pct != null) {
+                const decimals = Number.isFinite(cfg.decimals) ? cfg.decimals : 2;
                 const arrow = change >= 0 ? '▲' : '▼';
                 const sign = change >= 0 ? '+' : '';
-                changeElement.innerHTML = `
-                    <span class="arrow">${arrow}</span>
-                    ${sign}${change.toFixed(4)} (${sign}${changePercent.toFixed(2)}%)
-                `;
-                
-                changeElement.className = 'asset-change ' + (change >= 0 ? 'positive' : 'negative');
-                
-                // Highlight card if change is >= +5% or <= -5%
-                if (cardElement) {
-                    cardElement.classList.remove('alert-positive', 'alert-negative');
-                    if (changePercent >= 5) {
-                        cardElement.classList.add('alert-positive');
-                    } else if (changePercent <= -5) {
-                        cardElement.classList.add('alert-negative');
-                    }
+                changeEl.innerHTML = '<span class="arrow">' + arrow + '</span> ' + sign + change.toFixed(decimals) + ' (' + sign + pct.toFixed(2) + '%)';
+                changeEl.className = 'asset-change ' + (change >= 0 ? 'positive' : 'negative');
+                if (card) {
+                    card.classList.remove('alert-positive', 'alert-negative');
+                    if (pct >= 5) card.classList.add('alert-positive');
+                    else if (pct <= -5) card.classList.add('alert-negative');
                 }
+            } else if (changeEl) {
+                changeEl.textContent = '---';
+                changeEl.className = 'asset-change neutral';
             }
         }
 
-        // Update connection status
-        function updateStatus(connected, errorMsg = '') {
+        function quoteBySymbol(quotes, symbol) {
+            if (!quotes || !quotes.length) return null;
+            return quotes.find(q => q.symbol === symbol) || null;
+        }
+
+        function getDollarIndexDisplayQuote(quotes) {
+            const mode = settings.dollarIndexMode || 'dxy';
+            if (mode === 'dxy') return quoteBySymbol(quotes, 'DXY');
+            if (mode === 'usd_jpy') return quoteBySymbol(quotes, 'USDJPY');
+            if (mode === 'usd_hkd') return quoteBySymbol(quotes, 'USDHKD');
+            if (mode === 'eur_usd') return quoteBySymbol(quotes, 'EURUSD');
+            if (mode === 'gbp_usd') return quoteBySymbol(quotes, 'GBPUSD');
+            return quoteBySymbol(quotes, 'DXY');
+        }
+
+        function updateStatus(ok, msg, isDemo) {
             const dot = document.getElementById('status-dot');
             const text = document.getElementById('status-text');
-            
-            if (connected) {
+            if (ok) {
                 dot.className = 'status-dot connected';
-                text.textContent = `Live · Updated: ${new Date().toLocaleTimeString()}`;
+                text.textContent = (isDemo ? 'Demo · ' : 'Live · ') + new Date().toLocaleTimeString();
             } else {
                 dot.className = 'status-dot error';
-                text.textContent = errorMsg ? `Error: ${errorMsg} · Retrying...` : 'Connection error · Retrying...';
+                text.textContent = msg ? msg : 'Retrying...';
             }
         }
 
-        // Track if currently fetching
         let isFetching = false;
-        
-        // Main update function
-        async function updatePrices() {
-            if (isFetching) {
-                console.log('Already fetching, skipping...');
-                return;
-            }
-            
+        async function refreshPrices() {
+            if (isFetching) return;
             isFetching = true;
-            document.getElementById('status-text').textContent = 'Fetching prices...';
-            
+            const statusEl = document.getElementById('status-text');
+            if (statusEl) statusEl.textContent = 'Fetching...';
             try {
-                const quotes = await fetchPrices();
-                
-                if (quotes && quotes.length > 0) {
-                    for (const [key, asset] of Object.entries(assets)) {
-                        const quote = quotes.find(q => q.symbol === asset.symbol);
-                        updatePriceDisplay(asset, quote);
-                    }
-                    console.log('Prices updated successfully');
+                const result = await fetchPrices();
+                const quotes = result && result.quotes ? result.quotes : (Array.isArray(result) ? result : null);
+                const isDemo = result && result.demo;
+                if (result && result.wallclock && new URLSearchParams(window.location.search).get('debug') === '1') {
+                    console.log('[WallClock] server:', result.wallclock);
+                    const bz = quotes && quotes.find(function(q) { return q.symbol === 'BZ'; });
+                    if (bz) console.log('[WallClock] BZ tile row:', bz);
                 }
-            } catch (error) {
-                console.error('Update error:', error);
-                updateStatus(false, error.message);
-            } finally {
-                isFetching = false;
+                const keys = getOrderedAssetKeys();
+                keys.forEach(key => {
+                    const cfg = ASSET_CONFIG[key];
+                    if (!cfg) return;
+                    const q = (key === 'dollar_index')
+                        ? getDollarIndexDisplayQuote(quotes)
+                        : ((quotes && quotes.length) ? quotes.find(q => q.symbol === cfg.symbol) : undefined);
+                    updatePriceDisplay(key, q);
+                });
+                updateStatus(true, null, isDemo);
+            } catch (e) { updateStatus(false, e.message); }
+            finally { isFetching = false; }
+        }
+
+        let highlightedCard = null;
+        let chartInstance = null;
+        function destroyChart() {
+            window.removeEventListener('resize', onChartResize);
+            if (chartInstance) {
+                try { chartInstance.remove(); } catch (e) {}
+                chartInstance = null;
+            }
+        }
+        async function loadChartForAsset(assetKey) {
+            const panel = document.getElementById('chart-panel');
+            const container = document.getElementById('chart-container');
+            const titleEl = document.getElementById('chart-title');
+            if (!panel || !container) return;
+            destroyChart();
+            panel.classList.remove('hidden');
+            const cfg = ASSET_CONFIG[assetKey];
+            titleEl.textContent = (cfg ? cfg.name : assetKey) + ' · 15m candlesticks · Last 6 months';
+            try {
+                const chartUrl = (window.location.origin || '') + '/api/chart/' + encodeURIComponent(assetKey);
+                const r = await fetch(chartUrl, { cache: 'no-store' });
+                if (!r.ok) {
+                    let errMsg = 'Chart unavailable';
+                    try { const err = await r.json(); if (err.error) errMsg = err.error; } catch (_) {}
+                    titleEl.textContent = (cfg ? cfg.name : assetKey) + ' · ' + errMsg;
+                    return;
+                }
+                const data = await r.json();
+                const candles = data.candles || [];
+                const source = (data.source === 'ibkr') ? ' (IBKR)' : (data.source === 'yahoo' ? ' (Yahoo)' : '');
+                if (candles.length === 0) {
+                    titleEl.textContent = (cfg ? cfg.name : assetKey) + ' · ' + (data.error || 'No chart data');
+                    return;
+                }
+                titleEl.textContent = (cfg ? cfg.name : assetKey) + ' · 15m candlesticks · Last 6 months' + source;
+                container.innerHTML = '';
+                const chart = LightweightCharts.createChart(container, {
+                    layout: { background: { type: 'solid', color: '#0a0a0a' }, textColor: '#888' },
+                    grid: { vertLines: { color: '#1a1a1a' }, horzLines: { color: '#1a1a1a' } },
+                    width: container.clientWidth,
+                    height: 280,
+                    timeScale: { timeVisible: true, secondsVisible: false },
+                    rightPriceScale: { borderColor: '#333' },
+                });
+                const series = chart.addCandlestickSeries({
+                    upColor: '#00ff88',
+                    downColor: '#ff4444',
+                    borderUpColor: '#00ff88',
+                    borderDownColor: '#ff4444',
+                });
+                const chartData = candles.map(c => ({
+                    time: c.time,
+                    open: c.open,
+                    high: c.high,
+                    low: c.low,
+                    close: c.close,
+                }));
+                series.setData(chartData);
+                chart.timeScale().fitContent();
+                chartInstance = chart;
+                window.addEventListener('resize', onChartResize);
+            } catch (e) {
+                titleEl.textContent = (cfg ? cfg.name : assetKey) + ' · Chart error';
+            }
+        }
+        function onChartResize() {
+            if (chartInstance) {
+                const container = document.getElementById('chart-container');
+                if (container && container.clientWidth) chartInstance.applyOptions({ width: container.clientWidth });
+            }
+        }
+        function toggleHighlight(card) {
+            const section = document.getElementById('prices-section');
+            const all = section.querySelectorAll('.price-card');
+            if (highlightedCard === card) {
+                highlightedCard = null;
+                section.classList.remove('has-highlight');
+                all.forEach(c => { c.classList.remove('highlighted', 'hidden'); });
+                document.getElementById('chart-panel').classList.add('hidden');
+                destroyChart();
+                applyFontSettings();
+            } else {
+                highlightedCard = card;
+                section.classList.add('has-highlight');
+                all.forEach(c => {
+                    if (c === card) { c.classList.add('highlighted'); c.classList.remove('hidden'); }
+                    else { c.classList.add('hidden'); c.classList.remove('highlighted'); }
+                });
+                const key = card.dataset.assetKey;
+                if (key) loadChartForAsset(key);
             }
         }
 
-        // Initial load and periodic updates
-        console.log('Market Clock starting...');
-        updatePrices();
-        
-        // Update every 0.01 seconds (10ms) for live prices
-        const updateInterval = setInterval(updatePrices, 10);
-        
-        // Also update when page becomes visible again
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') {
-                console.log('Page visible, updating prices...');
-                updatePrices();
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+            else document.exitFullscreen();
+        }
+
+        document.getElementById('control-panel-icon').onclick = () => document.getElementById('control-panel-overlay').classList.add('open');
+        document.getElementById('control-close').onclick = () => document.getElementById('control-panel-overlay').classList.remove('open');
+        document.getElementById('control-panel-overlay').onclick = function(e) {
+            if (e.target === this) this.classList.remove('open');
+        };
+
+        function saveSettingToTarget(name, value) {
+            if (settings.applyTo === 'tile' && highlightedCard && highlightedCard.dataset.assetKey) {
+                const key = highlightedCard.dataset.assetKey;
+                if (!settings.perAsset) settings.perAsset = {};
+                if (!settings.perAsset[key]) settings.perAsset[key] = {};
+                settings.perAsset[key][name] = value;
+            } else {
+                settings[name] = value;
             }
+            saveSettings(settings);
+            applyFontSettings();
+            applyPerAssetStyles();
+        }
+        document.getElementById('font-family').onchange = function() {
+            saveSettingToTarget('fontFamily', this.value);
+        };
+        document.getElementById('font-size').oninput = function() {
+            const v = parseInt(this.value, 10);
+            document.getElementById('font-size-value').textContent = v + 'px';
+            saveSettingToTarget('fontSize', v);
+        };
+        document.getElementById('font-color').oninput = function() {
+            saveSettingToTarget('fontColor', this.value);
+        };
+        document.getElementById('price-color').oninput = function() {
+            saveSettingToTarget('priceColor', this.value);
+            document.body.classList.toggle('price-color-custom', this.value !== '#ffffff');
+        };
+        document.getElementById('apply-current-tile').onclick = function() {
+            settings.applyTo = 'tile';
+            document.getElementById('apply-all-tiles').classList.remove('active');
+            this.classList.add('active');
+            saveSettings(settings);
+        };
+        document.getElementById('apply-all-tiles').onclick = function() {
+            settings.applyTo = 'all';
+            document.getElementById('apply-current-tile').classList.remove('active');
+            this.classList.add('active');
+            saveSettings(settings);
+        };
+        document.getElementById('layout-grid').onclick = function() {
+            settings.layout = 'grid';
+            document.getElementById('layout-list').classList.remove('active');
+            this.classList.add('active');
+            saveSettings(settings);
+            document.getElementById('prices-section').classList.remove('layout-list');
+            document.getElementById('prices-section').classList.add('layout-grid');
+        };
+        document.getElementById('layout-list').onclick = function() {
+            settings.layout = 'list';
+            document.getElementById('layout-grid').classList.remove('active');
+            this.classList.add('active');
+            saveSettings(settings);
+            document.getElementById('prices-section').classList.remove('layout-grid');
+            document.getElementById('prices-section').classList.add('layout-list');
+        };
+        (function initAssetCheckboxes() {
+            const container = document.getElementById('asset-checkboxes');
+            if (!container) return;
+            ALL_ASSET_KEYS.forEach(key => {
+                const cfg = ASSET_CONFIG[key];
+                const label = document.createElement('label');
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.id = 'asset-' + key;
+                cb.checked = settings.optional[key] !== false;
+                cb.onchange = function() {
+                    settings.optional[key] = !!this.checked;
+                    saveSettings(settings);
+                    renderTiles();
+                    refreshPrices();
+                };
+                label.appendChild(cb);
+                label.appendChild(document.createTextNode(' ' + ((cfg && cfg.name) || key)));
+                container.appendChild(label);
+            });
+        })();
+
+        function syncControlPanelFromSettings() {
+            document.getElementById('layout-grid').classList.toggle('active', settings.layout !== 'list');
+            document.getElementById('layout-list').classList.toggle('active', settings.layout === 'list');
+            document.getElementById('apply-current-tile').classList.toggle('active', settings.applyTo === 'tile');
+            document.getElementById('apply-all-tiles').classList.toggle('active', settings.applyTo !== 'tile');
+            ALL_ASSET_KEYS.forEach(key => {
+                const cb = document.getElementById('asset-' + key);
+                if (cb) cb.checked = settings.optional[key] !== false;
+            });
+        }
+        document.getElementById('control-panel-icon').addEventListener('click', function() {
+            applyFontSettings();
+            syncControlPanelFromSettings();
         });
 
-        // Highlight/expand asset on click
-        let highlightedCard = null;
-        
-        function toggleHighlight(card) {
-            const pricesSection = document.getElementById('prices-section');
-            const allCards = document.querySelectorAll('.price-card');
-            
-            if (highlightedCard === card) {
-                // Un-highlight: show all cards
-                highlightedCard = null;
-                pricesSection.classList.remove('has-highlight');
-                allCards.forEach(c => {
-                    c.classList.remove('highlighted', 'hidden');
-                });
-            } else {
-                // Highlight this card, hide others
-                highlightedCard = card;
-                pricesSection.classList.add('has-highlight');
-                allCards.forEach(c => {
-                    if (c === card) {
-                        c.classList.add('highlighted');
-                        c.classList.remove('hidden');
-                    } else {
-                        c.classList.add('hidden');
-                        c.classList.remove('highlighted');
-                    }
-                });
+        const NEWS_PREVIEW_LIMIT = 5;
+        let newsOffset = 0;
+
+        function renderNewsItems(listEl, articles, emptyMsg) {
+            if (!listEl) return;
+            listEl.innerHTML = '';
+            if (!articles.length) {
+                listEl.innerHTML = '<div class="news-item">' + (emptyMsg || 'No articles right now.').replace(/</g, '&lt;') + '</div>';
+                return;
+            }
+            articles.forEach(a => {
+                const div = document.createElement('div');
+                div.className = 'news-item';
+                const dateStr = a.published_ts ? new Date(a.published_ts * 1000).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : '';
+                div.innerHTML = '<a href="' + (a.link || '#').replace(/"/g, '&quot;') + '" target="_blank" rel="noopener">' + (a.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</a>' +
+                    '<div class="news-source">' + (a.source || '').replace(/</g, '&lt;') + (dateStr ? ' · ' + dateStr : '') + '</div>';
+                listEl.appendChild(div);
+            });
+        }
+
+        async function loadNewsPreview() {
+            const listEl = document.getElementById('news-list-preview');
+            if (!listEl) return;
+            try {
+                const r = await fetch((window.location.origin || '') + '/api/news?limit=' + NEWS_PREVIEW_LIMIT + '&offset=0', { cache: 'no-store' });
+                if (!r.ok) return;
+                const data = await r.json();
+                const articles = data.articles || [];
+                const msg = (data.message || '').replace(/</g, '&lt;');
+                renderNewsItems(listEl, articles, msg || 'No articles right now.');
+            } catch (e) {
+                listEl.innerHTML = '<div class="news-item">News temporarily unavailable.</div>';
             }
         }
 
-        // Fullscreen functionality
-        function toggleFullscreen() {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(err => {
-                    console.log('Fullscreen error:', err);
-                });
-            } else {
-                document.exitFullscreen();
+        async function loadNews(offset) {
+            const listEl = document.getElementById('news-list');
+            const btnEl = document.getElementById('news-load-more');
+            if (offset === 0) listEl.innerHTML = '';
+            try {
+                const r = await fetch((window.location.origin || '') + '/api/news?limit=10&offset=' + offset, { cache: 'no-store' });
+                if (!r.ok) return;
+                const data = await r.json();
+                const articles = data.articles || [];
+                if (offset === 0 && articles.length === 0) {
+                    const msg = (data.message || 'No articles right now. Feeds may be temporarily unavailable.').replace(/</g, '&lt;');
+                    listEl.innerHTML = '<div class="news-item">' + msg + '</div>';
+                } else {
+                    articles.forEach(a => {
+                        const div = document.createElement('div');
+                        div.className = 'news-item';
+                        const dateStr = a.published_ts ? new Date(a.published_ts * 1000).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : '';
+                        div.innerHTML = '<a href="' + (a.link || '#').replace(/"/g, '&quot;') + '" target="_blank" rel="noopener">' + (a.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</a>' +
+                            '<div class="news-source">' + (a.source || '').replace(/</g, '&lt;') + (dateStr ? ' · ' + dateStr : '') + '</div>';
+                        listEl.appendChild(div);
+                    });
+                }
+                newsOffset = offset + articles.length;
+                if (btnEl) btnEl.classList.toggle('hidden', !data.has_more);
+            } catch (e) {
+                if (offset === 0) listEl.innerHTML = '<div class="news-item">News temporarily unavailable.</div>';
             }
         }
 
-        // Hide cursor after inactivity
+        document.getElementById('news-view-all-link').addEventListener('click', function(e) {
+            e.preventDefault();
+            document.getElementById('tab-news').click();
+        });
+        document.getElementById('news-load-more').addEventListener('click', function() {
+            loadNews(newsOffset);
+        });
+        document.getElementById('tab-prices').addEventListener('click', function() {
+            document.body.classList.remove('show-news');
+            document.getElementById('tab-prices').classList.add('active');
+            document.getElementById('tab-news').classList.remove('active');
+        });
+        document.getElementById('tab-news').addEventListener('click', function() {
+            document.body.classList.add('show-news');
+            document.getElementById('tab-news').classList.add('active');
+            document.getElementById('tab-prices').classList.remove('active');
+            document.getElementById('news-section').scrollIntoView({ behavior: 'smooth' });
+            if (document.getElementById('news-list').children.length === 0) loadNews(0);
+        });
+
+        applyFontSettings();
+        syncControlPanelFromSettings();
+        renderTiles();
+        refreshPrices();
+        loadNewsPreview();
+        loadNews(0);
+        setInterval(refreshPrices, 2000);
+        setInterval(function() {
+            loadNewsPreview();
+            if (document.body.classList.contains('show-news')) loadNews(0);
+        }, 60000);  // Preview every 1 min; full list refreshes when News tab is open
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refreshPrices(); });
+
         let cursorTimeout;
-        function resetCursorTimeout() {
+        function resetCursor() {
             document.body.classList.remove('hide-cursor');
             clearTimeout(cursorTimeout);
-            cursorTimeout = setTimeout(() => {
-                document.body.classList.add('hide-cursor');
-            }, 3000);
+            cursorTimeout = setTimeout(() => document.body.classList.add('hide-cursor'), 3000);
         }
+        document.addEventListener('mousemove', resetCursor);
+        document.addEventListener('touchstart', resetCursor);
 
-        document.addEventListener('mousemove', resetCursorTimeout);
-        document.addEventListener('touchstart', resetCursorTimeout);
-        resetCursorTimeout();
-
-        // Prevent screen from sleeping on mobile (where supported)
-        if ('wakeLock' in navigator) {
-            let wakeLock = null;
-            
-            async function requestWakeLock() {
-                try {
-                    wakeLock = await navigator.wakeLock.request('screen');
-                } catch (err) {
-                    console.log('Wake Lock error:', err);
-                }
-            }
-            
-            document.addEventListener('visibilitychange', () => {
-                if (document.visibilityState === 'visible') {
-                    requestWakeLock();
-                }
-            });
-            
-            requestWakeLock();
-        }
-
-        // Register Service Worker for PWA
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(reg => console.log('Service Worker registered'))
-                    .catch(err => console.log('Service Worker registration failed:', err));
-            });
+            window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
         }
     </script>
 </body>
